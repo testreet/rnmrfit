@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+
+*.o
+*.mod
+*.so
+
+*.swp
+
+tests/roi/data
