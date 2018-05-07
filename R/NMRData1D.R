@@ -287,7 +287,7 @@ setMethod("set_convolution", "NMRData1D",
       }
 
       f <- function(n) {
-
+        
         direct.time <- seq(0, aq, length.out = n)
         signal <- rep(1, n)
 

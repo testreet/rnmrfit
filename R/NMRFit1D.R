@@ -532,6 +532,7 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
 
   # Fitting
   start.time <- Sys.time()
+  print(p0)
   
   res <- nloptr(x0 = p0,
                 eval_f = fit.env$eval,

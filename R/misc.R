@@ -103,7 +103,7 @@ which_approx <- function(x, y) {
 
   for (i in 1:n) {
     abs.diff <- abs(x - y[i])
-    out[i] <- which(abs.diff == min(abs.diff))
+    out[i] <- which(abs.diff == min(abs.diff))[1]
   }
   out
 }
