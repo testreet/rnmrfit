@@ -83,6 +83,40 @@ NMRFit1D <- setClass('NMRFit1D',
 #========================================================================>
 
 #------------------------------------------------------------------------
+# Generate a constraint function on overall parameters based on lower bounds
+.f_lower <- function(object) {
+
+  # Get variables
+  parameters <- object@parameters
+  bounds <- object@bounds$lower@parameters
+
+  mat = -diag(length(parameters))
+
+  function(p) {
+    constraints <- -p + bounds
+    list(constraints = constraints, jacobian = mat)
+  }
+  
+}
+
+#------------------------------------------------------------------------
+# Generate a constraint function on overall parameters based on upper bounds
+.f_upper <- function(object) {
+
+  # Get variables
+  parameters <- object@parameters
+  bounds <- object@bounds$upper@parameters
+
+  mat = diag(length(parameters))
+
+  function(p) {
+    constraints <- p - bounds
+    list(constraints = constraints, jacobian = mat)
+  }
+  
+}
+
+#------------------------------------------------------------------------
 # Generate a constraint function on peak positions
 .f_position <- function(object, leeway, logic) {
 
@@ -438,6 +472,15 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
     #ineq <- c(ineq,.f_width(object, satellite.leeway, logic))
   }
   eq <- c(eq, .f_width(object, 0, logic))
+
+  # Adding simple lower and upper bounds if they exist
+  if ( bounds ) {
+    lower <- object@bounds$lower
+    upper <- object@bounds$upper
+
+    if (! is.null(object@bounds$lower) ) ineq <- c(ineq, .f_lower(object))
+    if (! is.null(object@bounds$upper) ) ineq <- c(ineq, .f_upper(object))
+  }
 
   # Generating overall constraint functions
   if ( length(eq) > 0 ) f_equality <- .f_constraint(eq)

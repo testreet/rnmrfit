@@ -1508,16 +1508,13 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
 #' @rdname set_relative_bounds
 #' @export
 setMethod("set_relative_bounds", "NMRScaffold1D",
-  function(object, nmrdata = NULL, overall = 0.1, position = NULL, 
+  function(object, overall = 0.1, position = NULL, 
            height = NULL, width = NULL) {
-
-  # Checking nmrdata
-  nmrdata <- .check_data(object, nmrdata)
 
   # Getting current values
   peaks <- object@peaks
   baseline <- object@baseline
-  baseine.diff <- object@baseline_difference
+  baseline.diff <- object@baseline_difference
   phase <- object@phase
 
   peak.type <- object@peak_type
@@ -1527,8 +1524,13 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
   h.columns <- .height_columns(object, TRUE)
   w.columns <- .width_columns(object, TRUE)
 
-  l.peaks <- peaks - overall*peaks
-  u.peaks <- peaks + overall*peaks
+  l.peaks <- peaks
+  u.peaks <- peaks
+
+  index <- c(p.columns, h.columns, w.columns)
+
+  l.peaks[, index] <- l.peaks[, index] - overall*peaks[, index]
+  u.peaks[, index] <- l.peaks[, index] + overall*peaks[, index]
 
   if (! is.null(position) ) {
     l.peaks[, p.columns] <- peaks[, p.columns] - position*peaks[, p.columns]
@@ -1545,14 +1547,16 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
     u.peaks[, w.columns] <- peaks[, w.columns] + width*peaks[, w.columns]
   }
 
-  l.baseline <- baseline - overall*baseline
-  u.baseline <- baseline + overall*baseline
+  fraction <- overall*max(peaks[, h.columns])
 
-  l.baseline.diff <- baseline.diff - overall*baseline.diff
-  u.baseline.diff <- baseline.diff + overall*baseline.diff
+  l.baseline <- baseline - fraction
+  u.baseline <- baseline + fraction 
 
-  l.phase <- phase - overall*phase
-  u.phase <- phase + overall*phase
+  l.baseline.diff <- baseline.diff - fraction 
+  u.baseline.diff <- baseline.diff + fraction
+
+  l.phase <- phase - pi/2
+  u.phase <- phase + pi/2 
 
   # Combine parameters
   l.parameters <- .gen_parameters(object, l.peaks, l.baseline, 
@@ -1564,7 +1568,7 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
   lower <- new("NMRScaffold1D", peaks = l.peaks, baseline = l.baseline,
                baseline_difference = l.baseline.diff, phase = l.phase, 
                parameters = l.parameters, constraints = object@constraints,
-               normalized = oject@normalized, peak_type = peak.type,
+               normalized = object@normalized, peak_type = peak.type,
                peak_units = object@peak_units, nmrdata = NULL,
                bounds = list(lower = NULL, upper = NULL))
 

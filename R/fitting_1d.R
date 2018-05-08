@@ -117,7 +117,7 @@ fit.env$eval <- function(., p) {
   if ( .$np > 0 ) {
     i <- length(p)
     grad[i] <- 2*(sum(Re(eps) * (-Re(y)*sin(angle) + Im(y)*cos(angle))) + 
-                  sum(Re(eps) * (-Re(y)*cos(angle) - Im(y)*sin(angle))))
+                  sum(Im(eps) * (-Re(y)*cos(angle) - Im(y)*sin(angle))))
   }
 
   list(objective = obj, gradient = grad)
