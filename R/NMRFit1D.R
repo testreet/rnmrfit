@@ -575,7 +575,6 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
 
   # Fitting
   start.time <- Sys.time()
-  print(p0)
   
   res <- nloptr(x0 = p0,
                 eval_f = fit.env$eval,
@@ -585,8 +584,6 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
                 ub = ub,
                 opts = d.opts)
 
-  print(res)
-  
   opt.time <- as.numeric(Sys.time() - start.time)
 
   if ( res$status < 0 ) {

@@ -9,3 +9,4 @@
 *.swp
 
 tests/roi/data
+inst/extdata/simulations/fits.rda
