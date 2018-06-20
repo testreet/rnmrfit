@@ -245,3 +245,81 @@ p.cv <- ggplot(stats, aes(x = snr, y = cv,
 
 p <- plot_grid(p.ex.1, p.ex.2, p.error, p.cv, ncol = 1)
 
+#------------------------------------------------------------------------
+# Initial guess
+
+# Generating data
+n <- 2^8
+x <- seq(0, 1, length.out = n)
+f <- gen_lorenz
+y_s <- f(x, 0.5, 0.03)
+
+# Function for generating sequence of initial guesses from 0 to 1 with
+# with a concentration around 0.5
+f_seq <- function(n, p) {
+  x <- seq(-1, 1, length.out = n)
+  ifelse(x < 0, -x^p, x^p)/3 + 0.5
+}
+
+if ( TRUE ) {
+  f_n <- function(nsr, position) {
+    peaks <- sprintf('%f s', position)
+    d <- gen_nmrdata(x, y_s, nsr = nsr, phase = 0, baseline = 0,
+                     procs = list(ssb = 1), apod = FALSE)
+    s <- nmrscaffold_1d(peaks, d, baseline.degree = NULL,
+                        include.phase = FALSE)
+    fit <<- nmrfit_1d(s, include.convolution = FALSE)
+    fit
+  }
+
+  f_b <- function(nsr, position) {
+    peaks <- sprintf('%f s', position)
+    d <- gen_nmrdata(x, y_s, nsr = nsr, phase = 0, baseline = 0.2,
+                     procs = list(ssb = 1), apod = FALSE)
+    s <- nmrscaffold_1d(peaks, d, baseline.degree = 2,
+                        n.knots = 1, include.phase = FALSE)
+    fit <<- nmrfit_1d(s, include.convolution = FALSE)
+    fit
+  }
+
+  f_p <- function(nsr, position) {
+    peaks <- sprintf('%f s', position)
+    d <- gen_nmrdata(x, y_s, nsr = nsr, phase = 30, baseline = 0,
+                     procs = list(ssb = 1), apod = FALSE)
+    s <- nmrscaffold_1d(peaks, d, baseline.degree = NULL,
+                        n.knots = 1, include.phase = TRUE)
+    fit <<- nmrfit_1d(s, include.convolution = FALSE)
+    fit
+  }
+
+  f_bp <- function(nsr, position) {
+    peaks <- sprintf('%f s', position)
+    d <- gen_nmrdata(x, y_s, nsr = nsr, phase = 30, baseline = .2,
+                     procs = list(ssb = 1), apod = FALSE)
+    s <- nmrscaffold_1d(peaks, d, baseline.degree = 2,
+                        n.knots = 1, include.phase = TRUE)
+    fit <<- nmrfit_1d(s, include.convolution = FALSE)
+    fit
+  }
+
+  if (TRUE) {
+  d <- expand.grid(s = 1:100, position = f_seq(20, 2))
+  fits_n <- mutate(d, fit = pmap(list(.316, position), f_n),
+                   error = 'No Error')
+  fits_b <- mutate(d, fit = pmap(list(.316, position), f_b),
+                   error = 'Baseline')
+  fits_p <- mutate(d, fit = pmap(list(.316, position), f_p),
+                   error = 'Phase')
+  fits_bp <- mutate(d, fit = pmap(list(.316, position), f_bp),
+                   error = 'Baseline + Phase')
+
+
+  fits <- rbind(fits_n, fits_b, fits_p, fits_bp)
+  
+  save(fits, file = 'fits2.rda')
+  }
+}
+
+load('fits2.rda')
+
+
