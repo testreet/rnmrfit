@@ -408,7 +408,7 @@ nmrscaffold_1d <- function(peak.list, nmrdata, peak.type = 'lorenz',
   d <- nmrdata@processed
   logic <- which_approx(d$direct.shift, peaks$position)
   height <- Re(d$intensity)[logic]
-  height <- ifelse(height < 0, 1e3, height)
+  height <- ifelse(height < 0, 0.1*max(d$intensity), height)
 
   # Adding on estimates for height and width (assumed to be 1 Hz)
   peaks$height <- height
