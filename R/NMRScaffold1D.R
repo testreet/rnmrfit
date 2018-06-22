@@ -1239,7 +1239,7 @@ setMethod("f_lineshape", "NMRScaffold1D",
                      'sampled data.')
         stop(msg, call. = TRUE)
       } else {
-        new.dx <- mean(new.dx)
+        new.dx <- abs(mean(new.dx))
       }
 
       new.n <- round(length(convolution)*new.dx/dx)

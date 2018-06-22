@@ -8,5 +8,8 @@
 
 *.swp
 
-tests/roi/data
+*.pdf
+
+
 inst/extdata/simulations/fits.rda
+inst/extdata/simulations/fits2.rda
