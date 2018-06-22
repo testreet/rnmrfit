@@ -1020,7 +1020,7 @@ setMethod("set_peak_type", "NMRScaffold1D",
 
     d$l.width = frac.lorenz*d$width
     d$g.width = (1 - frac.lorenz)*d$width
-    d$height = d$area*Re(faddeeva(complex(im=d$l.width)/(sqrt(2)*d$g.width)))/
+    d$height = d$area*Re(Faddeeva_w(complex(im=d$l.width)/(sqrt(2)*d$g.width)))/
                       (sqrt(2*pi)*d$g.width)
     d <- d[, .all_columns(object, peak.type = 'voigt')]
 
@@ -1191,7 +1191,7 @@ setMethod("f_lineshape", "NMRScaffold1D",
       w <- peaks[i, 3]
       z <- (x - p)/(sqrt(2)*w)
       
-      h*faddeeva(z)
+      h*Faddeeva_w(z)
     }
   } else if ( peak.type == 'pvoigt' ) {
     f <- function(i, x) {
@@ -1201,7 +1201,7 @@ setMethod("f_lineshape", "NMRScaffold1D",
       w <- peaks[i, 4]
       z <- (x - p)/w
       
-      lh*complex(re = 1, im = z)/(1 + z^2) + gh*faddeeva(z)
+      lh*complex(re = 1, im = z)/(1 + z^2) + gh*Faddeeva_w(z)
     }
   } else if ( peak.type == 'voigt' ) {
     f <- function(i, x) {
@@ -1211,7 +1211,7 @@ setMethod("f_lineshape", "NMRScaffold1D",
       gw <- peaks[i, 4]
       z <- (x - p + complex(im = lw))/(sqrt(2)*gw)
       
-      h*faddeeva(z)/faddeeva(complex(im = lw)/(sqrt(2)*gw))
+      h*Faddeeva_w(z)/Faddeeva_w(complex(im = lw)/(sqrt(2)*gw))
     }
   }
 
@@ -1384,7 +1384,7 @@ setMethod("calc_area", "NMRScaffold1D",
       d <- mutate(d, area = width*(pi*l.height + sqrt(pi)*g.height))
     } else if ( peak.type == 'voigt' ) {
       d <- mutate(d, area = Re(sqrt(2*pi)*g.width*height/
-                            faddeeva(complex(im = l.width)/(sqrt(2)*g.width))))
+                            Faddeeva_w(complex(im = l.width)/(sqrt(2)*g.width))))
     }
 
   } else if ( type == 'numerical' ) {

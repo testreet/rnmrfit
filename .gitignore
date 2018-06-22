@@ -10,6 +10,4 @@
 
 *.pdf
 
-
-inst/extdata/simulations/fits.rda
-inst/extdata/simulations/fits2.rda
+inst/extdata/simulations/*.rda
