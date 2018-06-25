@@ -84,9 +84,9 @@ f_dd <- function(nsr, phase, apod) {
 #------------------------------------------------------------------------
 # The actual simulation
 
-if ( TRUE ) {
-  d <- expand.grid(s = 1:100, nsr = c(0.0316, 0.1, 0.316), 
-                   phase = c(10, 20, 30))
+if ( FALSE ) {
+  d <- expand.grid(s = 1:100, nsr = c(0.01, 0.0316, 0.1, 0.316), 
+                   phase = c(0, 15, 30))
   fits_s <- mutate(d, fit = pmap(list(nsr, phase, FALSE), f_s),
                    peaks = 'Singlet', true = pi)
   fits_d <- mutate(d, fit = pmap(list(nsr, phase, FALSE), f_d),
@@ -148,11 +148,12 @@ theme_set(theme_bw(18))
 f_cols <- scales::seq_gradient_pal('grey80', 'cornflowerblue')
 cols <- f_cols(seq(0, 1, length.out = 3))
 
-ex.1 <- filter(examples, nsr < 0.05, phase == 10)
+ex.1 <- filter(examples, nsr < 0.075, nsr > 0.025, phase == 0)
 p.ex.1 <- ggplot(ex.1, aes(x = direct.shift, y = intensity)) +
           geom_line() +
           xlab('') +
           ylab('Relative intensity') +
+          coord_cartesian(ylim=c(-.25, 1.25)) +
           facet_wrap(~ peaks, nrow = 1)
 
 ex.2 <- filter(examples, nsr > 0.15, phase == 30)
@@ -161,31 +162,37 @@ p.ex.2 <- ggplot(ex.2, aes(x = direct.shift, y = intensity)) +
           xlab('Relative chemical shift') +
           ylab('Relative intensity') +
           facet_wrap(~ peaks, nrow = 1) +
+          coord_cartesian(ylim=c(-.25, 1.25)) +
           theme(legend.position = 'bottom',
                 strip.text.x = element_blank())
 
-p.error <- ggplot(stats, aes(x = snr, y = error, 
-                             colour = phase, shape = phase)) +
+p.error <- ggplot(stats, 
+				  aes(x = snr, y = error, 
+                      colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
-           ylab('Median absolute error (%)') + 
+           ylab('Median\nabsolute error (%)') + 
            xlab('') +
            scale_colour_manual(values = cols) +
            facet_wrap(~ peaks, nrow = 1) +
+           coord_cartesian(ylim=c(0, 4)) +
            theme(legend.position = 'none')
 
-p.cv <- ggplot(stats, aes(x = snr, y = cv, 
-                          colour = phase, shape = phase)) +
+p.cv <- ggplot(stats, 
+			   aes(x = snr, y = cv, 
+                   colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
-           ylab('Coefficient of variance (%)') + 
+           ylab('Coefficient\nof variance (%)') + 
            xlab('Signal to noise ratio (dB)') +
            scale_colour_manual('Phase error (°)', values = cols) +
            scale_shape_discrete('Phase error (°)') +
            facet_wrap(~ peaks, nrow = 1) +
+           coord_cartesian(ylim=c(0, 4)) +
            theme(legend.position = 'bottom',
                  strip.text.x = element_blank())
 
-p1 <- plot_grid(p.ex.1, p.ex.2, p.error, p.cv, ncol = 1)
+p1 <- plot_grid(p.ex.1, p.ex.2, p.error, p.cv, ncol = 1,
+                labels = c('A' ,'B', 'C', 'D'))
 ggsave('lorenz_error.pdf', width = 12, height = 12, units = 'in')
 

@@ -52,39 +52,54 @@ fit3 <- nmrfit_1d(s, include.convolution = FALSE)
 # Defining functions for data generation
 
 f_s <- function(nsr, phase, apod) {
+  include.phase <- ifelse(phase < 0.1, FALSE, TRUE)
   peaks <- '0.5 s'
   d <- gen_nmrdata(x, y_s, nsr = nsr, phase, baseline = 0.2,
                    procs = list(ssb = 1), apod = apod)
-  s <- nmrscaffold_1d(peaks, d, baseline.degree = 2,
-                  n.knots = 1, include.phase = TRUE, peak.type='voigt')
-  fit <<- nmrfit_1d(s, include.convolution = FALSE)
-  fit
+  s <- nmrscaffold_1d(peaks, d, baseline.degree = 2, n.knots = 1,
+                      include.phase = TRUE)
+  fit <- nmrfit_1d(s, include.convolution = FALSE)
+  peak_type(fit) <- 'voigt'
+  baseline(fit) <- rep(0, 4)
+  baseline_difference(fit) <- rep(0, 4)
+  fit2 <<- nmrfit_1d(fit, include.convolution = FALSE)
+  fit2
 }
 
 f_d <- function(nsr, phase, apod) {
+  include.phase <- ifelse(phase < 0.1, FALSE, TRUE)
   peaks <- list(a = '0.5 s', b = '0.5 d 10')
-  d <- gen_nmrdata(x, y_d, nsr = nsr, phase, baseline = 0.2,
+  d <- gen_nmrdata(x, y_d, nsr = nsr, phase, baseline = 0.2, 
                    procs = list(ssb = 1), apod = apod)
-  s <- nmrscaffold_1d(peaks, d, baseline.degree = 2, 
-                      n.knots = 1, include.phase = TRUE, peak.type='voigt')
-  fit <<- nmrfit_1d(s, include.convolution = FALSE)
-  fit
+  s <- nmrscaffold_1d(peaks, d, baseline.degree = 2, n.knots = 1,
+                      include.phase = TRUE)
+  fit <- nmrfit_1d(s, include.convolution = FALSE)
+  peak_type(fit) <- 'voigt'
+  baseline(fit) <- rep(0, 4)
+  baseline_difference(fit) <- rep(0, 4)
+  fit2 <<- nmrfit_1d(fit, include.convolution = FALSE)
+  fit2
 }
 
 f_dd <- function(nsr, phase, apod) {
+  include.phase <- ifelse(phase < 0.1, FALSE, TRUE)
   peaks <- list(a = '0.62 d 10', b = '0.5 d 10')
   d <- gen_nmrdata(x, y_dd, nsr = nsr, phase, baseline = 0.2,
                    procs = list(ssb = 1), apod = apod)
-  s <- nmrscaffold_1d(peaks, d, baseline.degree = 2, 
-                      n.knots = 1, include.phase = TRUE, peak.type='voigt')
-  fit <<- nmrfit_1d(s, include.convolution = FALSE)
-  fit
+  s <- nmrscaffold_1d(peaks, d, baseline.degree = 2, n.knots = 1,
+                      include.phase = TRUE)
+  fit <- nmrfit_1d(s, include.convolution = FALSE)
+  peak_type(fit) <- 'voigt'
+  baseline(fit) <- rep(0, 4)
+  baseline_difference(fit) <- rep(0, 4)
+  fit2 <<- nmrfit_1d(fit, include.convolution = FALSE)
+  fit2
 }
 
 #------------------------------------------------------------------------
 # The actual simulation
 
-if ( FALSE ) {
+if ( TRUE ) {
 
   f_area <- function(b, c) {
     sqrt(2*pi)*c*100/Re(Faddeeva_w(complex(im = b*100)/(sqrt(2)*c*100)))
@@ -94,8 +109,8 @@ if ( FALSE ) {
   a_d <- f_area(0.01, 0.005) + f_area(0.02,0.01)
   a_dd <- f_area(0.01, 0.005) + 2*f_area(0.02,0.01)
 
-  d <- expand.grid(s = 1:100, nsr = c(0.0316, 0.1, 0.316), 
-                   phase = c(10, 20, 30))
+  d <- expand.grid(s = 1:100, nsr = c(0.01, 0.0316, 0.1, 0.316), 
+                   phase = c(0, 15, 30))
   fits_s <- mutate(d, fit = pmap(list(nsr, phase, FALSE), f_s),
                    peaks = 'Singlet', true = a_s)
   fits_d <- mutate(d, fit = pmap(list(nsr, phase, FALSE), f_d),
@@ -157,11 +172,12 @@ theme_set(theme_bw(18))
 f_cols <- scales::seq_gradient_pal('grey80', 'cornflowerblue')
 cols <- f_cols(seq(0, 1, length.out = 3))
 
-ex.1 <- filter(examples, nsr < 0.05, phase == 10)
+ex.1 <- filter(examples, nsr < 0.05, nsr > 0.01, phase == 0)
 p.ex.1 <- ggplot(ex.1, aes(x = direct.shift, y = intensity)) +
           geom_line() +
           xlab('') +
           ylab('Relative intensity') +
+          coord_cartesian(ylim=c(-.25, 1.25)) +
           facet_wrap(~ peaks, nrow = 1)
 
 ex.2 <- filter(examples, nsr > 0.15, phase == 30)
@@ -170,33 +186,37 @@ p.ex.2 <- ggplot(ex.2, aes(x = direct.shift, y = intensity)) +
           xlab('Relative chemical shift') +
           ylab('Relative intensity') +
           facet_wrap(~ peaks, nrow = 1) +
+          coord_cartesian(ylim=c(-.25, 1.25)) +
           theme(legend.position = 'bottom',
                 strip.text.x = element_blank())
 
-p.error <- ggplot(filter(stats, !((snr < 6) & (phase > 25))), 
+p.error <- ggplot(stats, 
 				  aes(x = snr, y = error, 
                       colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
-           ylab('Median absolute error (%)') + 
+           ylab('Median\nabsolute error (%)') + 
            xlab('') +
            scale_colour_manual(values = cols) +
            facet_wrap(~ peaks, nrow = 1) +
+           coord_cartesian(ylim=c(0, 4)) +
            theme(legend.position = 'none')
 
-p.cv <- ggplot(filter(stats, !((snr < 6) & (phase > 25))), 
+p.cv <- ggplot(stats, 
 			   aes(x = snr, y = cv, 
                    colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
-           ylab('Coefficient of variance (%)') + 
+           ylab('Coefficient\nof variance (%)') + 
            xlab('Signal to noise ratio (dB)') +
            scale_colour_manual('Phase error (°)', values = cols) +
            scale_shape_discrete('Phase error (°)') +
            facet_wrap(~ peaks, nrow = 1) +
+           coord_cartesian(ylim=c(0, 4)) +
            theme(legend.position = 'bottom',
                  strip.text.x = element_blank())
 
-p1 <- plot_grid(p.ex.1, p.ex.2, p.error, p.cv, ncol = 1)
+p1 <- plot_grid(p.ex.1, p.ex.2, p.error, p.cv, ncol = 1,
+                labels = c('A' ,'B', 'C', 'D'))
 ggsave('voigt_error.pdf', width = 12, height = 12, units = 'in')
 

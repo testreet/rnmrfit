@@ -839,7 +839,7 @@ setGeneric("baseline_knots", function(object, ...)
 #' @rdname baseline_knots 
 #' @export
 setMethod("baseline_knots", "NMRScaffold1D", 
-          function(object) object@baseline_knots)
+          function(object) object@knots)
 
 #' @templateVar slot knots
 #' @template NMRScaffold_replacement
@@ -863,7 +863,7 @@ setReplaceMethod("baseline_knots", "NMRScaffold1D",
                      object <- .drop_bounds(object)
                    }
 
-                   object@baseline_knots <- value
+                   object@knots <- value
                    validObject(object)
                    object
                  })

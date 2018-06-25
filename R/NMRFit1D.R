@@ -674,7 +674,7 @@ setReplaceMethod("baseline_difference", "NMRFit1D",
 #' @rdname baseline_knots
 #' @export
 setMethod("baseline_knots", "NMRFit1D", 
-          function(object) object@baseline)
+          function(object) object@knots)
 
 #' @rdname baseline_knots-set
 #' @export
@@ -691,7 +691,7 @@ setReplaceMethod("baseline_knots", "NMRFit1D",
                      object <- .drop_bounds(object)
                    }
 
-                   object@baseline_knots <- value
+                   object@knots <- value
                    validObject(object)
                    object
                  })
