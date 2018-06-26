@@ -97,7 +97,11 @@ stats <- fits %>%
            unnest(position) %>%
            filter(abs((position - 0.5))/0.5 < 0.01) %>% 
            group_by(error, guess) %>%
-           summarize(percent = n())
+           summarize(percent = n()/10) %>%
+           ungroup() %>%
+           mutate(error = factor(as.character(error),
+                                 levels = c('No Error', 'Baseline',
+                                            'Phase', 'Baseline + Phase')))
 
 # Extracting example lineshape
 examples <- fits %>%
@@ -125,12 +129,19 @@ p.ex <- ggplot(examples,
         theme(legend.position = 'top')
 
 
-p.guess <- ggplot(stats, aes(x = guess, y = percent, colour = error)) +
-           geom_point() +
+p.guess <- ggplot(stats, aes(x = guess, y = percent, 
+                             colour = error, shape = error,
+                             linetype = error)) +
+           geom_point(size = 3) +
            geom_line() +
            ylab('Convergence (%)') + 
-           xlab('') +
-           scale_colour_brewer(palette='Dark2') +
+           xlab('Initial relative chemical shift') +
+           scale_colour_brewer('Error', palette='Dark2') +
+           scale_shape_discrete('Error') +
+           scale_linetype_manual('Error', values = c('solid', 'dashed',
+                                                     'dotted', 'dotdash')) +
+           coord_cartesian(ylim = c(0, 100)) + 
            theme(legend.position = 'top')
 
-p2 <- plot_grid(p.ex, p.guess, ncol = 1)
+p2 <- plot_grid(p.ex, p.guess, ncol = 1, labels = c('A', 'B'))
+ggsave('lorenz_guess.pdf', width = 7, height = 9, units = 'in')
