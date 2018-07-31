@@ -120,7 +120,7 @@ p.combined <- ggplot(d.combined,
               scale_linetype_discrete('Data') +
               theme(legend.position = 'bottom')
 
-ggsave('fig1.pdf', width = 12, height = 9, units = 'in')
+ggsave('example.pdf', width = 12, height = 9, units = 'in')
 
 
 

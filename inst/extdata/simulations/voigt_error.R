@@ -99,7 +99,7 @@ f_dd <- function(nsr, phase, apod) {
 #------------------------------------------------------------------------
 # The actual simulation
 
-if ( TRUE ) {
+if ( FALSE ) {
 
   f_area <- function(b, c) {
     sqrt(2*pi)*c*100/Re(Faddeeva_w(complex(im = b*100)/(sqrt(2)*c*100)))
@@ -109,7 +109,7 @@ if ( TRUE ) {
   a_d <- f_area(0.01, 0.005) + f_area(0.02,0.01)
   a_dd <- f_area(0.01, 0.005) + 2*f_area(0.02,0.01)
 
-  d <- expand.grid(s = 1:100, nsr = c(0.01, 0.0316, 0.1, 0.316), 
+  d <- expand.grid(s = 1:100, nsr = c(0.01, 0.02, 0.1, 0.2), 
                    phase = c(0, 15, 30))
   fits_s <- mutate(d, fit = pmap(list(nsr, phase, FALSE), f_s),
                    peaks = 'Singlet', true = a_s)
@@ -146,7 +146,8 @@ stats <- areas %>%
 
 # Converting to db
 stats <- stats %>%
-          mutate(snr =round(10*log10(1/stats$nsr)),
+          mutate(snr = round(1/stats$nsr),
+                 xpos = as.numeric(factor(snr)),
                  peaks = factor(as.character(peaks),
                                 levels = c('Singlet',
                                            'Singlet + Doublet',
@@ -172,7 +173,7 @@ theme_set(theme_bw(18))
 f_cols <- scales::seq_gradient_pal('grey80', 'cornflowerblue')
 cols <- f_cols(seq(0, 1, length.out = 3))
 
-ex.1 <- filter(examples, nsr < 0.05, nsr > 0.01, phase == 0)
+ex.1 <- filter(examples, nsr < 0.015, nsr > 0.005, phase == 0)
 p.ex.1 <- ggplot(ex.1, aes(x = direct.shift, y = intensity)) +
           geom_line() +
           xlab('') +
@@ -191,26 +192,30 @@ p.ex.2 <- ggplot(ex.2, aes(x = direct.shift, y = intensity)) +
                 strip.text.x = element_blank())
 
 p.error <- ggplot(stats, 
-				  aes(x = snr, y = error, 
-                      colour = phase, shape = phase)) +
+				  aes(x = xpos, y = error, 
+              colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
            ylab('Median\nabsolute error (%)') + 
            xlab('') +
+           scale_x_continuous(breaks = 1:4, 
+                              labels = c(5, 10, 50, 100)) +
            scale_colour_manual(values = cols) +
            facet_wrap(~ peaks, nrow = 1) +
            coord_cartesian(ylim=c(0, 4)) +
            theme(legend.position = 'none')
 
 p.cv <- ggplot(stats, 
-			   aes(x = snr, y = cv, 
-                   colour = phase, shape = phase)) +
+			   aes(x = xpos, y = cv, 
+             colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
            ylab('Coefficient\nof variance (%)') + 
-           xlab('Signal to noise ratio (dB)') +
+           xlab('Signal to noise ratio') +
            scale_colour_manual('Phase error (°)', values = cols) +
            scale_shape_discrete('Phase error (°)') +
+           scale_x_continuous(breaks = 1:4, 
+                              labels = c(5, 10, 50, 100)) +
            facet_wrap(~ peaks, nrow = 1) +
            coord_cartesian(ylim=c(0, 4)) +
            theme(legend.position = 'bottom',

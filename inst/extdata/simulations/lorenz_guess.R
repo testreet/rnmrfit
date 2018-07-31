@@ -60,7 +60,7 @@ f_bp <- function(nsr, position) {
 #------------------------------------------------------------------------
 # The actual simulation
 
-if (FALSE) {
+if ( TRUE ) {
 
   # Function for generating sequence of initial guesses from 0 to 1 with
   # with a concentration around 0.5
@@ -70,13 +70,13 @@ if (FALSE) {
   }
 
   d <- expand.grid(s = 1:1000, guess = f_seq(20, 2))
-  fits_n <- mutate(d, fit = pmap(list(.316, guess), f_n),
+  fits_n <- mutate(d, fit = pmap(list(.2, guess), f_n),
                    error = 'No Error')
-  fits_b <- mutate(d, fit = pmap(list(.316, guess), f_b),
+  fits_b <- mutate(d, fit = pmap(list(.2, guess), f_b),
                    error = 'Baseline')
-  fits_p <- mutate(d, fit = pmap(list(.316, guess), f_p),
+  fits_p <- mutate(d, fit = pmap(list(.2, guess), f_p),
                    error = 'Phase')
-  fits_bp <- mutate(d, fit = pmap(list(.316, guess), f_bp),
+  fits_bp <- mutate(d, fit = pmap(list(.2, guess), f_bp),
                    error = 'Baseline + Phase')
 
 
@@ -88,7 +88,7 @@ if (FALSE) {
 #------------------------------------------------------------------------
 # Post-processing
 
-load('lorenz_guess.rda')
+#load('lorenz_guess.rda')
 
 # Positions
 stats <- fits %>%
