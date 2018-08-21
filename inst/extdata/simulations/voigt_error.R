@@ -210,7 +210,7 @@ p.cv <- ggplot(stats,
              colour = phase, shape = phase)) +
            geom_point() +
            geom_line() +
-           ylab('Coefficient\nof variance (%)') + 
+           ylab('Coefficient\nof variation (%)') + 
            xlab('Signal to noise ratio') +
            scale_colour_manual('Phase error (°)', values = cols) +
            scale_shape_discrete('Phase error (°)') +

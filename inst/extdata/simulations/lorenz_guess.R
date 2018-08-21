@@ -60,7 +60,7 @@ f_bp <- function(nsr, position) {
 #------------------------------------------------------------------------
 # The actual simulation
 
-if ( TRUE ) {
+if ( FALSE ) {
 
   # Function for generating sequence of initial guesses from 0 to 1 with
   # with a concentration around 0.5
@@ -88,7 +88,7 @@ if ( TRUE ) {
 #------------------------------------------------------------------------
 # Post-processing
 
-#load('lorenz_guess.rda')
+load('lorenz_guess.rda')
 
 # Positions
 stats <- fits %>%
@@ -135,7 +135,7 @@ p.guess <- ggplot(stats, aes(x = guess, y = percent,
            geom_point(size = 3) +
            geom_line() +
            ylab('Convergence (%)') + 
-           xlab('Initial relative chemical shift') +
+           xlab('Initial chemical shift') +
            scale_colour_brewer('Error', palette='Dark2') +
            scale_shape_discrete('Error') +
            scale_linetype_manual('Error', values = c('solid', 'dashed',
