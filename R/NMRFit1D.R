@@ -176,6 +176,52 @@ NMRFit1D <- setClass('NMRFit1D',
 }
 
 #------------------------------------------------------------------------
+# Generate a constraint function on peak position order
+.f_order <- function(object, min.distance, ordered.peaks) {
+
+  # If there are no ordered peaks, output NULL
+  if ( length(ordered.peaks) == 0 ) return(NULL)
+  
+  # Get variables
+  peak.type <- object@peak_type
+  peaks <- object@peaks
+  parameters <- object@parameters
+
+  n.peaks <- nrow(peaks)
+  n.cols <- ncol(peaks) - 2
+  n.parameters <- length(parameters)
+
+  # Generate a list of all positions
+  p.index <- seq(.position_columns(object, TRUE) - 2, n.parameters, n.cols)
+
+  # Subset the positions based on desired peaks
+  logic <- match(ordered.peaks, peaks$id)
+  n.constraints <- length(logic)
+
+  # Ensuring correct order
+  positions <- unlist(peaks[, .position_columns(object, TRUE)])[logic]
+  peak.order <- order(positions)
+
+  peaks.1 <- p.index[peak.order][1:(n.constraints-1)]
+  peaks.2 <- p.index[peak.order][2:n.constraints]
+
+  # The constraints are set from provided tolerance
+  differences <- min.distance 
+
+  # Generate jacobian 
+  mat <- matrix(0, nrow = n.constraints, ncol = n.parameters)
+  mat[cbind(1:n.constraints, peaks.2)] <- 1
+  mat[cbind(1:n.constraints, peaks.1)] <- -1
+
+  function(p) {
+    constraints <- p[peaks.2] - p[peaks.1] - differences
+
+    list(constraints = constraints, jacobian = mat)
+  }
+
+}
+
+#------------------------------------------------------------------------
 # Generate a constraint function on peak heights 
 .f_height <- function(object, leeway, logic) {
 
@@ -358,6 +404,12 @@ NMRFit1D <- setClass('NMRFit1D',
 #'                         between a satellite and the main peak. Switching
 #'                         to a non-zero value results in the use of 
 #'                         inequality constraints.
+#' @param ordered.peaks A vector of peak ids (names) whose order relative to
+#'                      each other is not allowed to change. This option can
+#'                      be useful for preventing an arbitrary collection of 
+#'                      singlets used to fit a more complex peak from drifting
+#'                      past or on top of each other, leading to ill-defined 
+#'                      optimization.
 #' @param include.convolution TRUE to include convolution vector of nmrdata
 #'                            into fit (if present), FALSE to ignore it.
 #' @param components String specifying the complex data componets to use for 
@@ -369,8 +421,9 @@ NMRFit1D <- setClass('NMRFit1D',
 #' @export
 nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE, 
                       bounds = TRUE, coupling.leeway = 0, area.leeway = 0, 
-                      satellite.leeway = 0, include.convolution = TRUE,
-                      components = "r/i", opts = NULL) {
+                      satellite.leeway = 0, ordered.peaks = character(),
+                      include.convolution = TRUE, components = "r/i", 
+                      opts = NULL) {
 
   # Checking object 
   if ( class(object) %in% c('NMRScaffold1D', 'NMRFit1D') ) {
@@ -472,6 +525,11 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
     #ineq <- c(ineq,.f_width(object, satellite.leeway, logic))
   }
   eq <- c(eq, .f_width(object, 0, logic))
+
+  # Finally, forcing order on specified peaks
+  if ( length(ordered.peaks) > 0 ) {
+    ineq <- c(ineq, .f_order(object, x[2] - x[1], ordered.peaks))
+  }
 
   # Adding simple lower and upper bounds if they exist
   if ( bounds ) {
