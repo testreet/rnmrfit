@@ -229,6 +229,7 @@ setValidity("NMRScaffold1D", validNMRScaffold1D)
 #'                  multiplets of the form "3 d 1.2". See details section.
 #' @param peak.type One of lorenz, gauss, pvoigt, or voigt.
 #' @param nmrdata An NMRData1D object.
+#' @param peak.width Initial estimate of peak width (in Hz)
 #' @param baseline.degree Degree of B-spline polynomials to use for baseline.
 #'                        As the degree can be 0, use NULL to remove
 #'                        baseline entirely (default value).
@@ -249,7 +250,7 @@ setValidity("NMRScaffold1D", validNMRScaffold1D)
 #'
 #' @export
 nmrscaffold_1d <- function(peak.list, nmrdata, peak.type = 'lorenz', 
-                           baseline.degree = 3, n.knots = 3,
+                           peak.width = 1, baseline.degree = 3, n.knots = 3,
                            include.difference = TRUE, include.phase = TRUE, 
                            store = TRUE) {
 
@@ -410,9 +411,9 @@ nmrscaffold_1d <- function(peak.list, nmrdata, peak.type = 'lorenz',
   height <- Re(d$intensity)[logic]
   height <- ifelse(height < 0, 0.1*max(Re(d$intensity)), height)
 
-  # Adding on estimates for height and width (assumed to be 1 Hz)
+  # Adding on estimates for height and width
   peaks$height <- height
-  peaks$width <- 1
+  peaks$width <- peak.width
 
   # Calculating scaling factors for knots
   x.offset <- min(d$direct.shift)
@@ -1420,7 +1421,8 @@ setMethod("calc_area", "NMRScaffold1D",
 #' @export
 setMethod("set_conservative_bounds", "NMRScaffold1D",
   function(object, nmrdata = NULL, position = NULL, 
-           height = NULL, width = NULL) { 
+           height = NULL, width = NULL, 
+           phase = pi/2, baseline = 0.25, baseline.diff = 0.25) { 
 
   # Checking 1D data
   nmrdata <- .check_data(object, nmrdata)
@@ -1432,9 +1434,9 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
 
   # Getting current values
   peaks <- object@peaks
-  baseline <- object@baseline
-  baseline.diff <- object@baseline_difference
-  phase <- object@phase
+  current.baseline <- object@baseline
+  current.baseline.diff <- object@baseline_difference
+  current.phase <- object@phase
 
   peak.type <- object@peak_type
 
@@ -1466,14 +1468,20 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
     u.peaks[, w.columns] <- peaks[, w.columns] + width*peaks[, w.columns]
   }
 
-  l.baseline <- rep(-0.25, length(baseline))
-  u.baseline <- rep(0.25, length(baseline))
+  if (! is.null(baseline) ) {
+    l.baseline <- rep(-baseline, length(current.baseline))
+    u.baseline <- rep(baseline, length(current.baseline))
+  }
 
-  l.baseline.diff <- rep(-0.25, length(baseline.diff))
-  u.baseline.diff <- rep(0.25, length(baseline.diff))
+  if (! is.null(baseline) ) {
+    l.baseline.diff <- rep(-baseline, length(current.baseline.diff))
+    u.baseline.diff <- rep(baseline, length(current.baseline.diff))
+  }
 
-  l.phase <- rep(-pi/2, length(phase))
-  u.phase <- rep(pi/2, length(phase))
+  if (! is.null(phase) ) {
+    l.phase <- rep(-phase, length(current.phase))
+    u.phase <- rep(phase, length(current.phase))
+  }
 
   # Conservative boundaries are normalized, with width in Hz
   normalized <- TRUE
@@ -1491,85 +1499,6 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
                parameters = l.parameters, constraints = object@constraints,
                normalized = normalized, peak_type = peak.type,
                peak_units = peak.units, nmrdata = NULL,
-               bounds = list(lower = NULL, upper = NULL))
-
-  upper <- new("NMRScaffold1D", lower, peaks = u.peaks, baseline = u.baseline,
-               baseline_difference = u.baseline.diff, phase = u.phase, 
-               parameters = u.parameters)
-
-  # Setting the boundaries
-  object@bounds$lower <- lower
-  object@bounds$upper <- upper
-
-  object
-})
-
-#------------------------------------------------------------------------
-#' @rdname set_relative_bounds
-#' @export
-setMethod("set_relative_bounds", "NMRScaffold1D",
-  function(object, overall = 0.1, position = NULL, 
-           height = NULL, width = NULL) {
-
-  # Getting current values
-  peaks <- object@peaks
-  baseline <- object@baseline
-  baseline.diff <- object@baseline_difference
-  phase <- object@phase
-
-  peak.type <- object@peak_type
-
-  # Performing calculations
-  p.columns <- .position_columns(object, TRUE)
-  h.columns <- .height_columns(object, TRUE)
-  w.columns <- .width_columns(object, TRUE)
-
-  l.peaks <- peaks
-  u.peaks <- peaks
-
-  index <- c(p.columns, h.columns, w.columns)
-
-  l.peaks[, index] <- l.peaks[, index] - overall*peaks[, index]
-  u.peaks[, index] <- l.peaks[, index] + overall*peaks[, index]
-
-  if (! is.null(position) ) {
-    l.peaks[, p.columns] <- peaks[, p.columns] - position*peaks[, p.columns]
-    u.peaks[, p.columns] <- peaks[, p.columns] + position*peaks[, p.columns]
-  }
-
-  if (! is.null(height) ) {
-    l.peaks[, h.columns] <- peaks[, h.columns] - height*peaks[, h.columns]
-    u.peaks[, h.columns] <- peaks[, h.columns] + height*peaks[, h.columns]
-  }
-
-  if (! is.null(width) ) {
-    l.peaks[, w.columns] <- peaks[, w.columns] - width*peaks[, w.columns]
-    u.peaks[, w.columns] <- peaks[, w.columns] + width*peaks[, w.columns]
-  }
-
-  fraction <- overall*max(peaks[, h.columns])
-
-  l.baseline <- baseline - fraction
-  u.baseline <- baseline + fraction 
-
-  l.baseline.diff <- baseline.diff - fraction 
-  u.baseline.diff <- baseline.diff + fraction
-
-  l.phase <- phase - pi/2
-  u.phase <- phase + pi/2 
-
-  # Combine parameters
-  l.parameters <- .gen_parameters(object, l.peaks, l.baseline, 
-                                          l.baseline.diff, l.phase) 
-  u.parameters <- .gen_parameters(object, u.peaks, u.baseline, 
-                                          u.baseline.diff, u.phase) 
-
-  # Generating and setting scaffold objects
-  lower <- new("NMRScaffold1D", peaks = l.peaks, baseline = l.baseline,
-               baseline_difference = l.baseline.diff, phase = l.phase, 
-               parameters = l.parameters, constraints = object@constraints,
-               normalized = object@normalized, peak_type = peak.type,
-               peak_units = object@peak_units, nmrdata = NULL,
                bounds = list(lower = NULL, upper = NULL))
 
   upper <- new("NMRScaffold1D", lower, peaks = u.peaks, baseline = u.baseline,

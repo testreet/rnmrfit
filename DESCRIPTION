@@ -1,4 +1,4 @@
-Package: nmrfit
+Package: rnmrfit
 Title: Robust NMR Lineshape Fitting in the Frequency Domain
 Version: 0.9
 Authors@R: person("Stanislav", "Sokolenko", email = "stanislav@sokolenko.net", role = c("aut", "cre"))

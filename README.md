@@ -1,13 +1,32 @@
-# NMRfit
+# rnmrfit
 
 This package implements NMR lineshape fitting using the real and imaginary components of the data in the frequency domain. The core of the algorithm is built around the NLOPT nonlinear optimization library with a number of helper script designed to facilitate working with NMR data.
 
+## Installation
+
+The `rnmrfit` package can be installed directly from GitHub using `devtools`:
+
+```
+#!R
+
+library(devtools)
+install_github('ssokolen/rnmrfit')
+```
+
+*While the repo is private, it is necessary to use the auth_key argument or download and install the source locally:*
+
+```
+#!R
+
+library(devtools)
+install('path to local source')
+```
 
 ## Tutorials
 
 Tutorials have been prepared for typical use-cases when fitting 1D data. They are arranged in roughly increasing order of complexity. Most have been written with an R beginner in mind.
 
-The code snippets assume that the package has been loaded `library/nmrfitnmrfit)`, however, any external packages are explicitly typed out in every snippet.
+The code snippets assume that the package has been loaded `library(rnmrfit)`; however, any external packages are explicitly typed out in every snippet.
 
 ### Table of contents
 
@@ -23,7 +42,7 @@ The code snippets assume that the package has been loaded `library/nmrfitnmrfit)
 
 ### Loading 1D data
 
-As it stands, the `nmrfit` package relies on previously processed data that it loads from the `pdata` folder of an NMR experiment. The following creates an `NMRData1D` object that is used to store NMR data.
+As it stands, the `rnmrfit` package relies on previously processed data that it loads from the `pdata` folder of an NMR experiment. The following creates an `NMRData1D` object that is used to store NMR data.
 
 
 ```
@@ -60,7 +79,7 @@ Note for R beginners: you can type `?filter_1d` to see the help file for the `fi
 
 The following code will use the pre-loaded `nmr.chol` 13C experiment. See the above section for loading your own NMR data.
 
-The fit process begins by the definition of a "scaffold" around the fit, which includes the number of peaks, peak type (Lorenz, Guass or Voigt), a description of the baseline, and a number of other options. This scaffold also serves as an initial guess for the fit process. The minimal amount of information required to generate a scaffold is a list of peaks and a set of data used to estimate initial guesses. The peak list can be defined using relatively standard NMR notation. A doublet at 120 ppm with a coupling constant of 30 Hz would be encoded as `'120 d 30'`. The `'d'` can be replaced by a number of common abbreviations including s, t, q, quint, sext, sept, oct, dd, dt, td, and tt. The latter 4 expect two coupling values, e.g., `'120 dd 30 30'`.
+The fit process begins by the definition of a "scaffold" around the fit, which includes the number of peaks, peak type (Lorentz, Guass or Voigt), a description of the baseline, and a number of other options. This scaffold also serves as an initial guess for the fit process. The minimal amount of information required to generate a scaffold is a list of peaks and a set of data used to estimate initial guesses. The peak list can be defined using relatively standard NMR notation. A doublet at 120 ppm with a coupling constant of 30 Hz would be encoded as `'120 d 30'`. The `'d'` can be replaced by a number of common abbreviations including s, t, q, quint, sext, sept, oct, dd, dt, td, and tt. The latter 4 expect two coupling values, e.g., `'120 dd 30 30'`.
 
 ```
 #!R
@@ -82,7 +101,7 @@ fit <- nmrfit_1d(scaffold)
 plot(fit)
 ```
 
-The current default is to assume Lorenz peak shape, include phase correction, and fit a 3rd order baseline spline with 3 equidistant knots. These options are likely to work in a lot of the usual cases (although 3 knots may not be enough when considering a large range with a heavily fluctuating baseline). The package includes another version of the `nmr.chol` data called `nmr.chol.bad` where a rolling baseline has been added along with a 15 degree phase error (0th and 1st order). As can be seen in the code below, the default options have no problem with these errors.
+The current default is to assume Lorentz peak shape, include phase correction, and fit a 3rd order baseline spline with 3 equidistant knots. These options are likely to work in a lot of the usual cases (although 3 knots may not be enough when considering a large range with a heavily fluctuating baseline). The package includes another version of the `nmr.chol` data called `nmr.chol.bad` where a rolling baseline has been added along with a 15 degree phase error (0th and 1st order). As can be seen in the code below, the default options have no problem with these errors.
 
 ```
 #!R
@@ -106,7 +125,7 @@ fit <- nmrfit_1d(scaffold)
 plot(fit)
 ```
 
-Although the default parameters work in this case, other cases may require some fine tuning. There are four optional parameters to consider: `include.phase` is a binary `TRUE`/`FALSE` toggle, `baseline.degree` is the polynomial order of each baseline spline, `n.knots` is the number of interior spline knots (the overall baseline is divided into `n.knots + 1` regions), and `include.difference` is another `TRUE`/`FALSE` toggle that controls whether separate baselines should be used for the real and imaginary data. Although both real and imaginary data should theoretically share the same baseline, difference could arise from instrumental artefacts or from large peaks close to but outside the considered chemical shift range impacting the imaginary data more than the real data. The following is an example of how the default options can be overriden:
+Although the default parameters work in this case, other cases may require some fine tuning. There are four optional parameters to consider: `include.phase` is a binary `TRUE`/`FALSE` toggle, `baseline.degree` is the polynomial order of each baseline spline, `n.knots` is the number of interior spline knots (the overall baseline is divided into `n.knots + 1` regions), and `include.difference` is another `TRUE`/`FALSE` toggle that controls whether separate baselines should be used for the real and imaginary data. Although both real and imaginary data should theoretically share the same baseline, difference could arise from a number of possible sources. The following is an example of how the default options can be overriden:
 
 ```
 #!R
@@ -131,6 +150,37 @@ fit <- nmrfit_1d(scaffold)
 # Examining fit
 plot(fit)
 ```
+
+If you check `?nmrfit_1d` you will see that by default, the fit function generates a set of conservative upper and lower bounds on the parameter estimates. It may necessary to to override these parameters by calling the boundary generation functions explicitly. See `?set_conservative_bounds.NMRScaffold_1D` to see what the following options mean:
+
+```
+#!R
+
+# Defining peak list, the list() command is optional if there is only 1 peak
+peaks <- list('121.7 s')
+
+# Using the modified cholesterol data
+nmrdata <- filter_1d(nmr.chol.bad, 120, 123)
+
+# Examine the spectrum prior to fit
+plot(nmrdata)
+
+# Generating scaffold using default parameters
+scaffold <- nmrscaffold_1d(peaks, nmrdata, include.phase = TRUE,
+                           baseline.degree = 3, n.knots =3, 
+                           include.difference = TRUE)
+
+# Setting manual constraints
+scaffold <- set_conservative_bounds(scaffold, width = 2, position = 0.1, 
+				    baseline = 0.1, phase = pi/4)
+
+# Fitting using default parameters
+fit <- nmrfit_1d(scaffold)
+
+# Examining fit
+plot(fit)
+```
+Note that tight constraints require good initial estimates. Keep in mind that small errors in initial position have a strong influence on initial peak height.
 
 
 ### Fitting multiple peaks

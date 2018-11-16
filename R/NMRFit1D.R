@@ -209,12 +209,13 @@ NMRFit1D <- setClass('NMRFit1D',
   differences <- min.distance 
 
   # Generate jacobian 
-  mat <- matrix(0, nrow = n.constraints, ncol = n.parameters)
-  mat[cbind(1:n.constraints, peaks.2)] <- 1
-  mat[cbind(1:n.constraints, peaks.1)] <- -1
+  mat <- matrix(0, nrow = n.constraints-1, ncol = n.parameters)
+  rows <- 1:(n.constraints - 1)
+  mat[cbind(rows, peaks.2)] <- -1
+  mat[cbind(rows, peaks.1)] <- 1
 
   function(p) {
-    constraints <- p[peaks.2] - p[peaks.1] - differences
+    constraints <- -p[peaks.2] + p[peaks.1] + differences
 
     list(constraints = constraints, jacobian = mat)
   }

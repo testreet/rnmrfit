@@ -1055,15 +1055,35 @@ setGeneric("calc_area",
 #' NMRScaffold object, this function provides a convenience method
 #' for generating conservative normalized bounds. Essentially, most parameters
 #' are effectively bound to an approximately 0-1 range following normalization.
+#' Keyword arguments can be used to override the default values.
 #'
 #' Warning, these bounds assume that the chemical shift domain is relatively
-#' small (< 0.1 ppm)
+#' small (< 0.5 ppm)
 #'
 #' @param object An NMRScaffold1D or NMRscaffold2D object.
 #' @param nmrdata An NMRData object.
-#' @param position Fraction difference override applied to position parameters.
-#' @param height Fraction difference override applied to height parameters.
-#' @param width Fraction difference override applied to width parameters.
+#' @param position Fractional range for position.
+#'                 E.g., if the domain of the chemical shift data covers 0.5 ppm
+#'                 and the initial estimate for the position is 2 ppm, a
+#'                 range of 0.01 would constrain the optimized value for 
+#'                 position to 2 ppm +/- 0.005 (or 0.01*0.5 = 0.005 ppm).
+#' @param height Fractional range for height. E.g., if the initial estimate
+#'               for the height is 500, a range of 0.5 would constrain the
+#'               optimized value to 500 +/- 250 (or 0.5*500).
+#' @param width Fractional range for width. E.g., if the initial estimate
+#'               for the width is 2 Hz, a range of 0.5 would constrain the
+#'               optimized value to 2 Hz +/- 1 (or 0.5*2).
+#' @param baseline Fractional range for baseline. Unlike the peaks,
+#'                 the baseline constraint fraction is calculated based on the
+#'                 the maximum height (intensity) of the data. E.g., if the
+#'                 tallest peak in the data has a value of 150, a range of
+#'                 0.5 constrains the baseline to optimized values of 0 +/- 75 
+#'                 (or 0.5*150).
+#' @param baseline.diff Fractional range for the baseline difference. Similar
+#'                      to baseline, but this parameter controls the difference
+#'                      between real and imaginary baselines.
+#' @param phase Absolute range for phase. E.g., a range of pi/4 constrains the
+#'              optimized phase correction to 0 +/- 45 degrees.
 #' @inheritParams methodEllipse
 #'
 #' @return A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
@@ -1074,29 +1094,4 @@ setGeneric("set_conservative_bounds",
   function(object, nmrdata = NULL, position = NULL, 
            height = NULL, width = NULL, ...) {
     standardGeneric("set_conservative_bounds")
-  })
-
-#------------------------------------------------------------------------
-#' Set relative bounds on an NMRScaffold1D or NMRScaffold2D object
-#'
-#' Although any NMRScaffold object can act as a boundary on another
-#' NMRScaffold object, this function provides a convenience method
-#' for generating bounds based on a relative difference from current
-#' parameter values.
-#'
-#' @param object An NMRScaffold1D or NMRScaffold2D object.
-#' @param nmrdata An NMRData object.
-#' @param overall Overall fraction difference applied to all parameters.
-#' @param position Fraction difference override applied to position parameters.
-#' @param height Fraction difference override applied to height parameters.
-#' @param width Fraction difference override applied to width parameters.
-#' @inheritParams methodEllipse
-#'
-#' @return A new NMRScaffold1D or NMRFit1D object with modified parameters.
-#'
-#' @export
-setGeneric("set_relative_bounds", 
-  function(object, nmrdata = NULL, overall = 0.1, position = NULL, 
-           height = NULL, width = NULL, ...) {
-    standardGeneric("set_relative_bounds")
   })
