@@ -1,6 +1,6 @@
 # Uses the nmrfit package to prepare set of ready to load examples.
 library(ggplot2)
-library(nmrfit)
+library(rnmrfit)
 library(purrr)
 
 # Peak list
@@ -48,7 +48,7 @@ fit3 <- nmrfit_1d(scaffold)
 print(fit3)
 nmr.chol.apod <- nmrdata3
 
-#save(nmr.chol, nmr.chol.bad, nmr.chol.apod, file = 'nmr_chol.rda')
+save(nmr.chol, nmr.chol.bad, nmr.chol.apod, file = 'nmr_chol.rda')
 
 #------------------------------------------------------------------------
 # Static plot of the fits

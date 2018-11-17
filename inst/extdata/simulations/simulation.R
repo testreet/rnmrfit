@@ -1,5 +1,5 @@
 # Generuc function definitions for simulation
-library(nmrfit)
+library(rnmrfit)
 library(RcppFaddeeva)
 
 # Setting seed for simulations
