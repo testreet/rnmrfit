@@ -2,7 +2,6 @@
 % Please edit documentation in R/NMRScaffold.R, R/NMRScaffold1D.R
 \name{methodEllipse}
 \alias{methodEllipse}
-\alias{methodEllipse}
 \title{Inherited ellipses description}
 \arguments{
 \item{...}{Additional arguments passed to inheriting methods.}

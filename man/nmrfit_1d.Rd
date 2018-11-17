@@ -6,7 +6,8 @@
 \usage{
 nmrfit_1d(object, nmrdata = NULL, normalized = TRUE, bounds = TRUE,
   coupling.leeway = 0, area.leeway = 0, satellite.leeway = 0,
-  include.convolution = TRUE, components = "r/i", opts = NULL)
+  ordered.peaks = character(), include.convolution = TRUE,
+  components = "r/i", opts = NULL)
 }
 \arguments{
 \item{object}{An NMRScaffold1D object.}
@@ -35,6 +36,13 @@ satellite positions as a function of the distance
 between a satellite and the main peak. Switching
 to a non-zero value results in the use of 
 inequality constraints.}
+
+\item{ordered.peaks}{A vector of peak ids (names) whose order relative to
+each other is not allowed to change. This option can
+be useful for preventing an arbitrary collection of 
+singlets used to fit a more complex peak from drifting
+past or on top of each other, leading to ill-defined 
+optimization.}
 
 \item{include.convolution}{TRUE to include convolution vector of nmrdata
 into fit (if present), FALSE to ignore it.}

@@ -4,7 +4,8 @@
 \alias{apodize_exponential}
 \title{Apply exponential apodization function}
 \usage{
-apodize_exponential(direct.time, signal, lb = 1, output.weights = FALSE)
+apodize_exponential(direct.time, signal, lb = 1,
+  output.weights = FALSE)
 }
 \arguments{
 \item{direct.time}{A vector of time points of the signal data.}

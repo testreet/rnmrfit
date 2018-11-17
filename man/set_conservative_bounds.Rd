@@ -10,20 +10,43 @@ set_conservative_bounds(object, nmrdata = NULL, position = NULL,
   height = NULL, width = NULL, ...)
 
 \S4method{set_conservative_bounds}{NMRScaffold1D}(object, nmrdata = NULL,
-  position = NULL, height = NULL, width = NULL)
+  position = NULL, height = NULL, width = NULL, phase = pi/2,
+  baseline = 0.25, baseline.diff = 0.25)
 }
 \arguments{
 \item{object}{An NMRScaffold1D or NMRscaffold2D object.}
 
 \item{nmrdata}{An NMRData object.}
 
-\item{position}{Fraction difference override applied to position parameters.}
+\item{position}{Fractional range for position.
+E.g., if the domain of the chemical shift data covers 0.5 ppm
+and the initial estimate for the position is 2 ppm, a
+range of 0.01 would constrain the optimized value for 
+position to 2 ppm +/- 0.005 (or 0.01*0.5 = 0.005 ppm).}
 
-\item{height}{Fraction difference override applied to height parameters.}
+\item{height}{Fractional range for height. E.g., if the initial estimate
+for the height is 500, a range of 0.5 would constrain the
+optimized value to 500 +/- 250 (or 0.5*500).}
 
-\item{width}{Fraction difference override applied to width parameters.}
+\item{width}{Fractional range for width. E.g., if the initial estimate
+for the width is 2 Hz, a range of 0.5 would constrain the
+optimized value to 2 Hz +/- 1 (or 0.5*2).}
 
 \item{...}{Additional arguments passed to inheriting methods.}
+
+\item{phase}{Absolute range for phase. E.g., a range of pi/4 constrains the
+optimized phase correction to 0 +/- 45 degrees.}
+
+\item{baseline}{Fractional range for baseline. Unlike the peaks,
+the baseline constraint fraction is calculated based on the
+the maximum height (intensity) of the data. E.g., if the
+tallest peak in the data has a value of 150, a range of
+0.5 constrains the baseline to optimized values of 0 +/- 75 
+(or 0.5*150).}
+
+\item{baseline.diff}{Fractional range for the baseline difference. Similar
+to baseline, but this parameter controls the difference
+between real and imaginary baselines.}
 }
 \value{
 A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
@@ -33,8 +56,9 @@ Although any NMRScaffold object can act as a boundary on another
 NMRScaffold object, this function provides a convenience method
 for generating conservative normalized bounds. Essentially, most parameters
 are effectively bound to an approximately 0-1 range following normalization.
+Keyword arguments can be used to override the default values.
 }
 \details{
 Warning, these bounds assume that the chemical shift domain is relatively
-small (< 0.1 ppm)
+small (< 0.5 ppm)
 }

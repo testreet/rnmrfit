@@ -5,8 +5,8 @@
 \title{Generate an NMRScaffold1D object based on simplified peak list}
 \usage{
 nmrscaffold_1d(peak.list, nmrdata, peak.type = "lorenz",
-  baseline.degree = 3, n.knots = 3, include.difference = TRUE,
-  include.phase = TRUE, store = TRUE)
+  peak.width = 1, baseline.degree = 3, n.knots = 3,
+  include.difference = TRUE, include.phase = TRUE, store = TRUE)
 }
 \arguments{
 \item{peak.list}{A vector or list of character strings specifying
@@ -15,6 +15,8 @@ multiplets of the form "3 d 1.2". See details section.}
 \item{nmrdata}{An NMRData1D object.}
 
 \item{peak.type}{One of lorenz, gauss, pvoigt, or voigt.}
+
+\item{peak.width}{Initial estimate of peak width (in Hz)}
 
 \item{baseline.degree}{Degree of B-spline polynomials to use for baseline.
 As the degree can be 0, use NULL to remove

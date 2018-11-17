@@ -5,9 +5,9 @@
 \title{Plot NMRFit1D object}
 \usage{
 plot.NMRFit1D(x, components = "r", apply.phase = TRUE,
-  sum.lineshapes = TRUE, sum.baseline = TRUE, include.convolution = TRUE,
-  deconvolve.residual = FALSE, nrows = 2, legend.position = "bottom",
-  fit.legend = NULL)
+  sum.lineshapes = TRUE, sum.baseline = TRUE,
+  include.convolution = TRUE, deconvolve.residual = FALSE, nrows = 2,
+  legend.position = "bottom", fit.legend = NULL)
 }
 \arguments{
 \item{x}{An NMRFit1D object.}

@@ -9,7 +9,8 @@
 \usage{
 set_peak_type(object, peak.type, frac.lorenz = 0.9, ...)
 
-\S4method{set_peak_type}{NMRScaffold1D}(object, peak.type, frac.lorenz = 0.9)
+\S4method{set_peak_type}{NMRScaffold1D}(object, peak.type,
+  frac.lorenz = 0.9)
 
 \S4method{set_peak_type}{NMRFit1D}(object, peak.type, frac.lorenz = 0.9)
 }
