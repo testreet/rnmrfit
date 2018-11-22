@@ -2,6 +2,8 @@
 
 This package implements NMR lineshape fitting using the real and imaginary components of the data in the frequency domain. The core of the algorithm is built around the NLOPT nonlinear optimization library with a number of helper script designed to facilitate working with NMR data.
 
+More information can be found in the accompanying article: https://doi.org/10.1016/j.jmr.2018.11.004
+
 ## Installation
 
 The `rnmrfit` package can be installed directly from GitHub using `devtools`:
@@ -13,14 +15,7 @@ library(devtools)
 install_github('ssokolen/rnmrfit')
 ```
 
-*While the repo is private, it is necessary to use the auth_key argument or download and install the source locally:*
-
-```
-#!R
-
-library(devtools)
-install('path to local source')
-```
+The package is still under active development and some functionality may change going forward. Further documentation will be added over time.  
 
 ## Tutorials
 
