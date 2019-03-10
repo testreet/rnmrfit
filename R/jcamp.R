@@ -356,8 +356,7 @@ process_jcamp <- function(jcamp_list, tags = TRUE, entries = TRUE, ...) {
       logic <- names(out[['blocks']][[i]]) != 'NTUPLES'
 
       names(out[['blocks']][[i]])[logic] <- 
-        sapply(names(out[['blocks']][[i]][logic]), process_jcamp_tag, ...)
-
+        sapply(names(out[['blocks']][[i]])[logic], process_jcamp_tag, ...)
 
       # If there are no ntuples then skip the rest of the iteration
       if (!'NTUPLES' %in% names(out[['blocks']][[i]])) next
@@ -397,6 +396,8 @@ process_jcamp <- function(jcamp_list, tags = TRUE, entries = TRUE, ...) {
         NTUPLES
       })
 
+      logic <- names(out[['blocks']][[i]]) == 'NTUPLES'
+      names(out[['blocks']][[i]])[logic] <- process_jcamp_tag('NTUPLES')
     }
   }
 
@@ -447,7 +448,7 @@ process_jcamp_entry <- function(jcamp.entry, sep = NULL) {
     }
     # Otherwise, attempt spitting is a separator is provided
     else if (!is.null(sep)) {
-      formatted <- str_split(jcamp.entry, '[ \t]*,[ \t]*')[[1]]
+      formatted <- str_split(jcamp.entry, sep)[[1]]
     }
     else {
       formatted <- jcamp.entry
@@ -455,8 +456,8 @@ process_jcamp_entry <- function(jcamp.entry, sep = NULL) {
 
     # Whether splitting required or not, try conversion to numeric
     formatted <- tryCatch({as.numeric(formatted)}, 
-                          warning = function(w) {jcamp.entry}, 
-                          error = function(e) {jcamp.entry})
+                          warning = function(w) {formatted}, 
+                          error = function(e) {formatted})
   }
   # Multi-line items
   else {
@@ -524,84 +525,95 @@ process_jcamp_entry <- function(jcamp.entry, sep = NULL) {
       # First, convert all spaces to a single character width
       by.line <- str_replace_all(by.line, '\\s+', ' ')
 
-	  # Then substitute a space before all leading characters
+	    # Then substitute a space before all leading characters
       by.line <- str_replace_all(by.line, '(?<![ ])([a-zA-Z@%+-])', ' \\1')
 
-	  # Check compression mode
-	  if ( any(str_detect(by.line, '[sS-Z]')) ) {
+      # Check compression mode
+      if ( any(str_detect(by.line, '[sS-Z]')) ) {
         mode <- 3 # DUP
-      } else if ( any(str_detect, by.line, '[j-rJ-R%]') ) {
- 	    mode <- 2 # DIF
-	  } else if ( any(str_detect, by.line, '[a-iA-I@]') ) {
-		mode <- 1 # SQZ
-	  } else {
-		mode <- 0
-	  }
+      } else if ( any(str_detect(by.line, '[j-rJ-R%]')) ) {
+        mode <- 2 # DIF
+      } else if ( any(str_detect(by.line, '[a-iA-I@]')) ) {
+        mode <- 1 # SQZ
+      } else {
+        mode <- 0
+      }
 
-	  # If the data has encoded repeats, expand them
-	  if ( mode == 3 ) {
+      # If the data has encoded repeats, expand them
+      if ( mode == 3 ) {
 	    
-	    # Pick off repeated elements
-        repeats <- unique(unlist(str_match_all(by.line, '[0-9a-zA-Z@%+-]+ [sS-Z][0-9]*')))
+	      # Pick off repeated elements
+        pattern <- '[0-9a-zA-Z@%+-]+ [sS-Z][0-9]*'
+        repeats <- unique(unlist(str_match_all(by.line, pattern)))
  
-		# Translate repeats
-	    patterns <- c('S'='1', 'T'='2', 'U'='3', 'V'='4', 'W'='5', 'X'='6', 'Y'='7', 'Z'='8', 's'='9')
+		    # Translate repeats
+	      patterns <- c('S'='1', 'T'='2', 'U'='3', 'V'='4', 'W'='5', 
+                      'X'='6', 'Y'='7', 'Z'='8', 's'='9')
         replacements <- str_replace_all(repeats, patterns)
 
-	    # Split repeat pairs and apply the repeat
-		replacements <- str_split(replacements, ' ')
-		replacements <- unlist(lapply(replacements, function(x) paste(rep(x[1], as.numeric(x[2])), collapse = ' ')))
+	      # Split repeat pairs and apply the repeat
+		    replacements <- str_split(replacements, ' ')
+        f <- function(x) paste(rep(x[1], as.numeric(x[2])), collapse = ' ')
+		    replacements <- unlist(lapply(replacements, f))
 
-		# Finally, re-insert the repeated values
-	    names(replacements) <- repeats
-	    by.line <- str_replace_all(by.line, replacements)
-	  }
+		    # Finally, re-insert the repeated values
+	      names(replacements) <- repeats
+	      by.line <- str_replace_all(by.line, replacements)
+	    }
 
 	  # Convert squeezed characters
 	  if ( mode >= 1) {
 		
 	    # Translate characters
-	    patterns <- c('A'='1', 'B'='2', 'C'='3', 'D'='4', 'E'='5', 'F'='6', 'G'='7', 'H'='8', 'I'='9',
-					  'a'='-1', 'b'='-2', 'c'='-3', 'd'='-4', 'e'='-5', 'f'='-6', 'g'='-7', 'h'='-8', 'i'='-9', '@'=0)
+	    patterns <- c('A'='1', 'B'='2', 'C'='3', 'D'='4', 'E'='5', 
+                    'F'='6', 'G'='7', 'H'='8', 'I'='9',
+					          'a'='-1', 'b'='-2', 'c'='-3', 'd'='-4', 'e'='-5', 
+                    'f'='-6', 'g'='-7', 'h'='-8', 'i'='-9', '@'=0)
 
-		by.line <- str_replace_all(by.line, patterns)
+		  by.line <- str_replace_all(by.line, patterns)
 	  }
 
 	  # At this point, split by spaces
-      by.line <- lapply(by.line, str_trim)
-      by.line <- str_split(by.line, ' ')
+    by.line <- lapply(by.line, str_trim)
+    by.line <- str_split(by.line, ' ')
       
 	  # If the data is stored as differences, apply them now
 	  if ( mode >= 2 ) {
 
 	    # Translate characters
-	    patterns <- c('J'='1', 'K'='2', 'L'='3', 'M'='4', 'N'='5', 'O'='6', 'P'='7', 'Q'='8', 'R'='9',
-					  'j'='-1', 'k'='-2', 'l'='-3', 'm'='-4', 'n'='-5', 'o'='-6', 'p'='-7', 'q'='-8', 'r'='-9', '%'=0)
+	    patterns <- c('J'='1', 'K'='2', 'L'='3', 'M'='4', 'N'='5', 
+                    'O'='6', 'P'='7', 'Q'='8', 'R'='9',
+					          'j'='-1', 'k'='-2', 'l'='-3', 'm'='-4', 
+                    'n'='-5', 'o'='-6', 'p'='-7', 'q'='-8', 'r'='-9', '%'=0)
 
-		# Double check to make sure there are no non-differences present
-		all.differences <- lapply(by.line, function(x) all(str_detect(x[-(1:2)], '[j-rJ-R%]')))
-		msg <- 'Absolute values found among DIF compressed data, aborting.'
+		  # Double check to make sure there are no non-differences present
+      f <- function(x) all(str_detect(x[-(1:2)], '[j-rJ-R%]'))
+		  all.differences <- lapply(by.line, f)
+		  msg <- 'Absolute values found among DIF compressed data, aborting.'
 	    if ( any(! unlist(all.differences)) ) stop(msg)
 
-		by.line <- lapply(by.line, str_replace_all, patterns)
+		  by.line <- lapply(by.line, str_replace_all, patterns)
 		
-		# Convert to numerical format and apply cumulative sum
-		by.line <- lapply(by.line, function(x) c(as.numeric(x[1]), cumsum(as.numeric(x)[-1])))
+		  # Convert to numerical format and apply cumulative sum
+      f <- function(x) c(as.numeric(x[1]), cumsum(as.numeric(x)[-1]))
+		  by.line <- lapply(by.line, f)
 
-		# With the difference comparison mode, the last value of each line should match the second value of following line
-		last.values <- unlist(lapply(by.line, function(x) `[`(x, length(x))))
-		second.values <- unlist(lapply(by.line, function(x) `[`(x, 2)))
+		  # With the difference comparison mode, the last value of each line 
+      # should match the second value of following line
+		  last.values <- unlist(lapply(by.line, function(x) `[`(x, length(x))))
+		  second.values <- unlist(lapply(by.line, function(x) `[`(x, 2)))
 
-		n <- length(by.line)
-	 	msg <- 'y value data check failed in decompressing DIF data, aborting.'
-		if ( any(abs(last.values[1:(n-1)] - second.values[2:n]) > 1e-6) ) stop(msg)
+		  n <- length(by.line)
+	 	  msg <- 'y value data check failed in decompressing DIF data, aborting.'
+      differences <- abs(last.values[1:(n-1)] - second.values[2:n])
+		  if ( any(differences > 1e-6) ) stop(msg)
 
-		# Stripping these last values
-		by.line[-n] <- lapply(by.line[-n], function(x) x[-length(x)])
+		  # Stripping these last values
+		  by.line[-n] <- lapply(by.line[-n], function(x) x[-length(x)])
 
 	  } else {
-		# Otherwise, just convert to numeric
-		by.line <- lapply(by.line, as.numeric)
+		  # Otherwise, just convert to numeric
+		  by.line <- lapply(by.line, as.numeric)
 	  }
 
 	  # Picking off the x values
@@ -723,7 +735,7 @@ flatten_jcamp <- function(jcamp_list) {
     ntuples <- out[['NTUPLES']]
   } else if (process_jcamp_tag('NTUPLES') %in% names(out)) {
     ntuples.string <- process_jcamp_tag('NTUPLES')
-    ntuples <- out[[ntuples_string]]
+    ntuples <- out[[ntuples.string]]
   } else {
     ntuples.string = NA
   }
@@ -735,7 +747,7 @@ flatten_jcamp <- function(jcamp_list) {
       stop(msg)
     }
 
-    out[ntuples.string] <- ntuples[[1]]
+    out[[ntuples.string]] <- ntuples[[1]]
   }
 
   # Returning
