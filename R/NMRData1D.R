@@ -402,9 +402,9 @@ setMethod("set_convolution", "NMRData1D",
       stop(msg, call. = TRUE)
     }
 
-    si <- object@procs[['si']]
-    td <- object@acqus[['td']]
-    sw <- object@acqus[['sw.h']]
+    si <- get_parameter(object, 'si', 'procs')
+    td <- get_parameter(object, 'td', 'acqus')
+    sw <- get_parameter(object, 'sw.h', 'acqus')
 
     # Correcting group delay
     if ( trim > 0 ) {
@@ -424,11 +424,11 @@ setMethod("set_convolution", "NMRData1D",
     # If param is empty, building up the list from the procs parameters
     if ( length(param) == 0 ) {
 
-      lb <- object@procs[['lb']]
-      gb <- object@procs[['gb']]
-      ssb <- object@procs[['ssb']]
-      tm1 <- object@procs[['tm1']]
-      tm2 <- object@procs[['tm2']]
+      lb <- get_parameter(object, 'lb', 'procs')
+      gb <- get_parameter(object, 'gb', 'procs')
+      ssb <- get_parameter(object, 'ssb', 'procs')
+      tm1 <- get_parameter(object, 'tm1', 'procs')
+      tm2 <- get_parameter(object, 'tm2', 'procs')
 
       if ( lb != 0 ) {
         if ( lb > 0 ) param$exponential <- list(lb = lb)
