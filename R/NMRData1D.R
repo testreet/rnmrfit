@@ -158,35 +158,48 @@ nmrdata_1d <- function(path, procs.number = NA,
     msg <- 'Mismatch in real and imaginary frequency, likely parsing error'
     if ( any(abs(real.frequency - imag.frequency) > 1e-6) ) stop(msg)
 
-    # Doing some final checks and scaling
+    # Starting with raw values
     frequency <- real.frequency
     real.data <- real.data[, 2]
     imag.data <- imag.data[, 2]
 
-    if ( abs(max(frequency) - descriptors$max[1]) > 1e-6 ) {
-      frequency <- frequency*descriptors$factor[1]
+    # Scaling if factors is non zero
+    scale <- descriptors$factor[1]
+    if (scale > 1e-6) frequency <- frequency*scale
 
-      msg <- 'Mismatch in maximum frequency, likely parsing error'
-      if ( abs(max(frequency) - descriptors$max[1]) > 1e-6 ) stop(msg)
+    scale <- descriptors$factor[real.index]
+    if (scale > 1e-6) real.data <- real.data*scale
+
+    scale <- descriptors$factor[imag.index]
+    if (scale > 1e-6) imag.data <- imag.data*scale
+
+    # Offsetting if max-min difference is non zero
+    d.max <- descriptors$max[1]
+    d.min <- descriptors$min[1]
+    if ( (d.max - d.min) > 1e-6 ) {
+      frequency <- frequency - max(frequency) + d.max
     }
-    direct.shift <- jcamp.flat$offset - frequency/jcamp.flat$sf
 
-    if ( abs(max(real.data) - descriptors$max[real.index]) > 1e-6 ) {
-      real.data <- real.data*descriptors$factor[real.index]
-
-      msg <- 'Mismatch in maximum real data, likely parsing error'
-      if ( abs(max(real.data) - descriptors$max[real.index]) > 1e-6 ) stop(msg)
+    d.max <- descriptors$max[real.index]
+    d.min <- descriptors$min[real.index]
+    if ( (d.max - d.min) > 1e-6 ) {
+      real.data <- real.data - max(real.data) + d.max
     }
 
-    if ( abs(max(imag.data) - descriptors$max[imag.index]) > 1e-6 ) {
-      imag.data <- imag.data*descriptors$factor[imag.index]
-
-      msg <- 'Mismatch in maximum imaginary data, likely parsing error'
-      if ( abs(max(imag.data) - descriptors$max[imag.index]) > 1e-6 ) stop(msg)
+    d.max <- descriptors$max[imag.index]
+    d.min <- descriptors$min[imag.index]
+    if ( (d.max - d.min) > 1e-6 ) {
+      imag.data <- imag.data - max(imag.data) + d.max
     }
+
+    # Doing one final check on the direct shift to check on offset
+    direct.shift <- frequency/jcamp.flat$sf
+    
+    delta <- jcamp.flat$offset - max(direct.shift)
+    if ( abs(delta) > 1e-6 ) direct.shift <- direct.shift + delta
+
+    # Finally, combine the data
     intensity <- complex(real = real.data, imaginary = imag.data)
-
-    # If everything checks out, then combine data
     processed <- data.frame(direct.shift = direct.shift,
                             intensity = intensity)
 

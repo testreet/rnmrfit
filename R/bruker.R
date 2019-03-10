@@ -482,7 +482,7 @@ read_processed_1d <- function(path, procs.list, number = NA) {
   direct.shift <- seq(ofs, ofs - sw.p/sf, length.out = si)
   
   if (rv == 'yes') {
-    sirect.shift <- rev(direct.shift)
+    direct.shift <- rev(direct.shift)
   }
 
   # Combining output
