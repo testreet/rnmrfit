@@ -5,7 +5,7 @@
 \alias{processed}
 \alias{processed,NMRData-method}
 \alias{processed,NMRData1D-method}
-\title{Access the "processed" of an NRMData object}
+\title{Access the "processed" slot of an NRMData object}
 \usage{
 processed(object, ...)
 
@@ -19,6 +19,6 @@ processed(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "processed" of an NMRData
+Generic convenience method to access the "processed" slot of an NMRData
 object.
 }

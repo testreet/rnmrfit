@@ -5,7 +5,7 @@
 \alias{procs}
 \alias{procs,NMRData-method}
 \alias{procs,NMRData1D-method}
-\title{Access the "procs" of an NRMData object}
+\title{Access the "procs" slot of an NRMData object}
 \usage{
 procs(object, ...)
 
@@ -19,6 +19,6 @@ procs(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "procs" of an NMRData
+Generic convenience method to access the "procs" slot of an NMRData
 object.
 }

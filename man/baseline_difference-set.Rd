@@ -5,7 +5,7 @@
 \alias{baseline_difference-set}
 \alias{baseline_difference<-,NMRScaffold1D-method}
 \alias{baseline_difference<-,NMRFit1D-method}
-\title{Replace the "baseline_difference" of an NMRScaffold object}
+\title{Replace the "baseline_difference" slot of an NMRScaffold object}
 \usage{
 baseline_difference(object) <- value
 
@@ -19,6 +19,6 @@ baseline_difference(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "baseline_difference" of an NMRScaffold
+Generic convenience method to replace the "baseline_difference" slot of an NMRScaffold
 object.
 }

@@ -4,18 +4,31 @@
 \alias{nmrdata_1d}
 \title{Constructor for generating an NMRData1D object}
 \usage{
-nmrdata_1d(path, number = NA)
+nmrdata_1d(path, procs.number = NA, blocks.number = NA,
+  ntuples.number = NA)
 }
 \arguments{
-\item{path}{Path to a Bruker scan directory.}
+\item{path}{Path to a Bruker scan directory or JCAMP file.}
 
-\item{number}{Processing file number. Defaults to the smallest
-number in the pdata directory.}
+\item{procs.number}{Specifies processing file number to use when loading
+from a Bruker scan directory. Defaults to the smallest 
+number in the pdata directory. Ignored if loading from
+a JCAMP file.}
+
+\item{blocks.number}{Specifies block number to use when loading from a
+JCAMP file. Defaults to the first block encountered.
+Ignored if loading from Bruker directory.}
+
+\item{ntuples.number}{Specifies ntuple entry number to use when loading 
+from a JCAMP file. Defaults to the first ntuple 
+entry encountered. Ignored if loading from Bruker 
+directory.}
 }
 \value{
 An NMRData1D object containing the 1r/1i processed data as well
         as the procs and acqus parameters.
 }
 \description{
-Loads data in Bruker folder and uses it to initialize an NMRData1D object.
+Loads data in JCAMP file or Bruker directory and uses it to initialize an 
+NMRData1D object.
 }

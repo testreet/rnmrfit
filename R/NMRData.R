@@ -6,13 +6,15 @@
 #' See NMRData1D or NMRData2D.
 #'
 #' @slot processed A data.frame containing chemical shift and intensity data.
-#' @slot acqus A list of acqus parameters.
-#' @slot procs A list of procs parameters.
+#' @slot parameters A list of generic parameters.
+#' @slot acqus A list of parameters specific to acqus file.
+#' @slot procs A list of parameters sepcific to procs file.
 #'
 #' @name NMRData-class
 #' @export
 NMRData <- setClass("NMRData",
                     slots = c(processed = "data.frame",
+                              parameters = "list",
                               acqus = "list",
                               procs = "list"))
 
@@ -47,6 +49,35 @@ setGeneric("processed<-",
 #' @export
 setReplaceMethod("processed", "NMRData",
                  function(object, value) {
+                   object@processed <- value
+                   validObject(object)
+                   object 
+                 })
+
+#------------------------------------------------------------------------
+#' @templateVar slot parameters 
+#' @template NMRData_access
+#' @name parameters
+#' @export
+setGeneric("parameters", 
+           function(object, ...) standardGeneric("parameters"))
+
+#' @rdname parameters
+#' @export
+setMethod("parameters", "NMRData", 
+          function(object) object@parameters)
+
+#' @templateVar slot parameters 
+#' @template NMRData_replacement
+#' @name parameters-set
+#' @export
+setGeneric("parameters<-", 
+           function(object, value) standardGeneric("parameters<-"))
+
+#' @rdname parameters-set
+#' @export
+setReplaceMethod("parameters", "NMRData",
+                 function(object, value) {
                    object@parameters <- value
                    validObject(object)
                    object 
@@ -76,7 +107,7 @@ setGeneric("procs<-",
 #' @export
 setReplaceMethod("procs", "NMRData",
                  function(object, value) {
-                   object@parameters <- value
+                   object@procs <- value
                    validObject(object)
                    object 
                  })
@@ -105,7 +136,7 @@ setGeneric("acqus<-",
 #' @export
 setReplaceMethod("acqus", "NMRData",
                  function(object, value) {
-                   object@parameters <- value
+                   object@acqus <- value
                    validObject(object)
                    object 
                  })
@@ -125,7 +156,8 @@ setReplaceMethod("acqus", "NMRData",
 #'
 #' @export
 as.list.NMRData <- function(x) {
-  list(processed = x@processed, procs = x@procs, acqus = x@acqus)
+  list(processed = x@processed, parameters = x@parameters, 
+       procs = x@procs, acqus = x@acqus)
 }
 
 setMethod("as.list", "NMRData", as.list.NMRData)

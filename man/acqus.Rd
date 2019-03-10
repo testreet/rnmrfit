@@ -5,7 +5,7 @@
 \alias{acqus}
 \alias{acqus,NMRData-method}
 \alias{acqus,NMRData1D-method}
-\title{Access the "acqus" of an NRMData object}
+\title{Access the "acqus" slot of an NRMData object}
 \usage{
 acqus(object, ...)
 
@@ -19,6 +19,6 @@ acqus(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "acqus" of an NMRData
+Generic convenience method to access the "acqus" slot of an NMRData
 object.
 }

@@ -6,7 +6,7 @@
 \alias{upper_bounds<-,NMRScaffold-method}
 \alias{upper_bounds<-,NMRScaffold1D-method}
 \alias{upper_bounds<-,NMRFit1D-method}
-\title{Replace the "upper_bounds" of an NMRScaffold object}
+\title{Replace the "upper_bounds" slot of an NMRScaffold object}
 \usage{
 upper_bounds(object) <- value
 
@@ -22,6 +22,6 @@ upper_bounds(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "upper_bounds" of an NMRScaffold
+Generic convenience method to replace the "upper_bounds" slot of an NMRScaffold
 object.
 }

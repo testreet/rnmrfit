@@ -5,7 +5,7 @@
 \alias{baseline}
 \alias{baseline,NMRScaffold1D-method}
 \alias{baseline,NMRFit1D-method}
-\title{Access the "baseline" of an NRMScaffold object}
+\title{Access the "baseline" slot of an NRMScaffold object}
 \usage{
 baseline(object, ...)
 
@@ -19,6 +19,6 @@ baseline(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "baseline" of an NMRScaffold
+Generic convenience method to access the "baseline" slot of an NMRScaffold
 object.
 }

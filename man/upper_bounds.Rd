@@ -6,7 +6,7 @@
 \alias{upper_bounds,NMRScaffold-method}
 \alias{upper_bounds,NMRScaffold1D-method}
 \alias{upper_bounds,NMRFit1D-method}
-\title{Access the "upper_bounds" of an NRMScaffold object}
+\title{Access the "upper_bounds" slot of an NRMScaffold object}
 \usage{
 upper_bounds(object, ...)
 
@@ -22,6 +22,6 @@ upper_bounds(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "upper_bounds" of an NMRScaffold
+Generic convenience method to access the "upper_bounds" slot of an NMRScaffold
 object.
 }
