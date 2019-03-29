@@ -95,7 +95,7 @@ nmrdata_1d <- function(path, procs.number = NA,
                        blocks.number = NA, ntuples.number = NA) {
 
   # If file exists at path, treating import as JCAMP, otherwise, Bruker scan
-  if ( file.exists(path) ) {
+  if ( file.exists(path) && !dir.exists(path) ) {
     # Load jcamp
     jcamp <- read_jcamp(path, process.tags = TRUE, process.entries = TRUE)
 
