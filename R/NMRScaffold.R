@@ -319,6 +319,25 @@ setGeneric(".spread_parameters",
 
 
 #------------------------------------------------------------------------
+#' Initialize empty set of bounds
+#'
+#' To place bounds on a subset of all the parameters, it is necessary to
+#' initialize lower and upper bound objects that mirror their parent, but
+#' filled with NA values.
+#'
+#' @param object NMRScaffold1D or NMRScaffold2D object.
+#' @param overwrite TRUE to overwrite existing bounds, FALSE to quietly ignore
+#'                  any existing bounds.
+#' @inheritParams methodEllipse
+#'
+#' @return Modified NMRScaffold object.
+#' @name initialize_bounds
+setGeneric(".initialize_bounds", 
+           function(object, overwrite = FALSE, ...) {
+             standardGeneric(".initialize_bounds")
+           })
+
+#------------------------------------------------------------------------
 #' Propagate function to bounds
 #'
 #' Since lower and upper bounds should be members of the same class as
@@ -1047,6 +1066,61 @@ setGeneric("calc_area",
 #========================================================================>
 
 
+
+#------------------------------------------------------------------------
+#' Set absolute bounds on an NMRScaffold1D or NMRScaffold2D object
+#'
+#' Although any NMRScaffold object can act as a boundary on another
+#' NMRScaffold object, this function provides a convenience method
+#' for generating such bounds using a simple set of lower and upper
+#' constraints on basic peak parameters such as position, height,
+#' width, etc... Note that the term "absolute" refers to the fact
+#' that the same bounds are applied to each and every peak, regardless
+#' of current parameter values. However, these bounds can still be
+#' normalized to the data using the normalized argument.
+#'
+#' @param object An NMRScaffold1D or NMRscaffold2D object.
+#' @param position A vector of two elements corresponding to a lower 
+#'                 and upper bound for peak position. If the normalized
+#'                 argument is true, 0 corresponds to the leftmost range
+#'                 of the data and 1 to the rightmost. Otherwise, the units
+#'                 are in ppm.
+#' @param height A vector of two elements corresponding to a lower
+#'               and upper bound for peak height. If the normalized
+#'               argument is true, 0 corresponds to the lowest value 
+#'               of spectral intensity and 1 to the largest. Otherwise, 
+#'               the units correspond to arbitrary spectral intensity values.
+#' @param width A vector of two elements corresponding to a lower
+#'              and upper bound for peak width. If the normalized
+#'              argument is true, 0 corresponds to the leftmost range
+#'              of the data and 1 to the rightmost. Otherwise, the units
+#'              depend on the peak.units argument.
+#' @param baseline A vector of two elements corresponding to a lower 
+#'                 and upper bound for baseline height. If the normalized
+#'                 argument is true, 0 corresponds to the lowest value 
+#'                 of spectral intensity and 1 to the largest. Otherwise, 
+#'                 the units correspond to arbitrary spectral intensity 
+#'                 values. The same constraints are applied to the real
+#'                 baseline and the imaginary baseline difference.
+#' @param phase A vector of two elements corresponding to a lower and upper 
+#'              bound for phase in radians.
+#' @param normalized TRUE to set bounds in terms of the underlying data, where
+#'                   the x and y values of the data are scaled between 0 and 1.
+#'                   FALSE to use natural units of ppm/Hz and spectral
+#'                   intensity.
+#' @param peak.units The units of peak width -- either 'ppm' or 'hz'. 
+#' @inheritParams methodEllipse
+#'
+#' @return A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
+#'
+#' @name set_absolute_bounds
+#' @export
+setGeneric("set_absolute_bounds", 
+  function(object, position = NULL, height = NULL, width = NULL, 
+           baseline = NULL, phase = NULL,
+           normalized = FALSE, peak.units = 'hz', ...) {
+    standardGeneric("set_absolute_bounds")
+  })
 
 #------------------------------------------------------------------------
 #' Set conservative bounds on an NMRScaffold1D or NMRScaffold2D object
