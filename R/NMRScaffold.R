@@ -1123,6 +1123,56 @@ setGeneric("set_absolute_bounds",
   })
 
 #------------------------------------------------------------------------
+#' Set relative bounds on an NMRScaffold1D or NMRScaffold2D object
+#'
+#' Although any NMRScaffold object can act as a boundary on another
+#' NMRScaffold object, this function provides a convenience method
+#' for generating such bounds using a simple set of lower and upper
+#' constraints on basic peak parameters such as position, height,
+#' width, etc... Note that the term "relative" refers to the fact
+#' that bounds are applied relative to the current values of the
+#' parameters. 
+#'
+#' @param object An NMRScaffold1D or NMRscaffold2D object.
+#' @param position A vector of two elements corresponding to a lower 
+#'                 and upper bound for peak position, where the value
+#'                 is taken as a fraction of the current position.
+#'                 Note that whether or not the normalized argument
+#'                 is set to TRUE has a big impact. If normalized is FALSE,
+#'                 the fraction is applied to the peak position in ppm
+#'                 (where even a small fraction has a very big impact). If
+#'                 normalized is TRUE, the fraction is effectively applied
+#'                 to a subset of the overall ppm range. 
+#' @param height A vector of two elements corresponding to a lower
+#'               and upper bound for peak height, where the value
+#'                 is taken as a fraction of the current height. 
+#' @param width A vector of two elements corresponding to a lower
+#'              and upper bound for peak width, where the value
+#'                 is taken as a fraction of the current width. 
+#' @param baseline A vector of two elements corresponding to a lower 
+#'                 and upper bound for baseline height, where the value
+#'                 is taken as a fraction of the current baseline height. 
+#' @param phase A vector of two elements corresponding to a lower and upper 
+#'              bound for phase in radians, where the value
+#'                 is taken as a fraction of the current phase.
+#' @param normalized TRUE to set bounds in terms of the underlying data, where
+#'                   the x and y values of the data are scaled between 0 and 1.
+#'                   FALSE to use natural units of ppm/Hz and spectral
+#'                   intensity.
+#' @inheritParams methodEllipse
+#'
+#' @return A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
+#'
+#' @name set_relative_bounds
+#' @export
+setGeneric("set_relative_bounds", 
+  function(object, position = NULL, height = NULL, width = NULL, 
+           baseline = NULL, phase = NULL,
+           normalized = FALSE, ...) {
+    standardGeneric("set_absolute_bounds")
+  })
+
+#------------------------------------------------------------------------
 #' Set conservative bounds on an NMRScaffold1D or NMRScaffold2D object
 #'
 #' Although any NMRScaffold object can act as a boundary on another
