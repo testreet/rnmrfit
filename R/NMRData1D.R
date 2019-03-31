@@ -449,9 +449,11 @@ setMethod("filter_1d", "NMRData1D",
 #'                   imaginary or both components. If both components
 #'                   are selected, they are displayed in separate subplots.
 #' @param nrows Max number of rows to display subplots.
+#' @param reverse TRUE to order x-axis with large values on the left and 
+#'                small values on the right like typical NMR plots.
 #'
 #' @export
-plot.NMRData1D <- function(x, components = 'r', nrows = 2) {
+plot.NMRData1D <- function(x, components = 'r', nrows = 2, reverse = TRUE) {
   d <- processed(x)
 
   plots <- list()
@@ -463,6 +465,8 @@ plot.NMRData1D <- function(x, components = 'r', nrows = 2) {
            add_lines()  %>%
            layout(legend = legend.opts)
 
+    if ( reverse ) p <- p %>% layout(xaxis = list(autorange = "reversed"))
+
     plots$r <- p
   }
 
@@ -471,6 +475,8 @@ plot.NMRData1D <- function(x, components = 'r', nrows = 2) {
                  color = I('grey'), name = 'Imaginary') %>%
            add_lines()  %>%
            layout(legend = legend.opts)
+
+    if ( reverse ) p <- p %>% layout(xaxis = list(autorange = "reversed"))
 
     plots$i <- p
   }

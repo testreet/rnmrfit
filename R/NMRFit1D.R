@@ -415,7 +415,12 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
 
   if ( bounds ) {
     if ( is.null(lower) || is.null(upper) ) {
-      bounded <- set_conservative_bounds(object, nmrdata)
+
+      # Setting nmrdata in case it was provided externally
+      bounded <- object
+      bounded@nmrdata <- nmrdata
+      
+      bounded <- set_conservative_bounds(object)
     }
 
     if ( is.null(lower) ) lower <- bounded@bounds$lower
@@ -948,6 +953,8 @@ setMethod("set_peak_units", "NMRFit1D",
 #'                   sum.lineshapes is TRUE and omitted if sum.lineshapes is
 #'                   FALSE. Set fit.legend to TRUE or FALSE to override this
 #'                   behaviour.
+#' @param reverse TRUE to order x-axis with large values on the left and 
+#'                small values on the right like typical NMR plots.
 #'
 #' @return A ggplot2 plot.
 #'
@@ -957,7 +964,7 @@ plot.NMRFit1D <- function(x, components = 'r',  apply.phase = TRUE,
                           include.convolution = TRUE,
                           deconvolve.residual = FALSE,
                           nrows = 2, legend.position = 'bottom', 
-                          fit.legend = NULL) { 
+                          fit.legend = NULL, reverse = TRUE) { 
 
   # Switching to absolute representation
   nmrfit <- set_peak_units(x, peak.units = 'ppm')
@@ -1009,6 +1016,8 @@ plot.NMRFit1D <- function(x, components = 'r',  apply.phase = TRUE,
             name = I(name), type = 'scatter', mode = 'lines',
             legendgroup = 1) %>%
       layout(legend = legend.opts)
+
+    if ( reverse ) p <- p %>% layout(xaxis = list(autorange = "reversed"))
   }
 
   if ( plot.r ) plots$r <- f_init(Re(d$intensity), 'black', 'Real')
