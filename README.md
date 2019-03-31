@@ -4,6 +4,12 @@ This package implements NMR lineshape fitting using the real and imaginary compo
 
 More information can be found in the accompanying article: https://doi.org/10.1016/j.jmr.2018.11.004
 
+## Recent updates
+
+Simple lower and upper bound generation has been cleaned up with the introduction of `set_absolute_bounds` and `set_relative_bounds`. The default bounds implemented through`set_conservative_bounds` have also been re-thought and should hopefully lead to better fits out of the box. More details in the examples below.
+
+Basic JCAMP data import has been implemented in the jcamp branch, but more testing is needed to account for various JCAMP variations. Import is currently limited to JCAMP files that store both real and imaginary data in the frequency domain. Bug reports would be appreciated if anyone encounters issues.
+
 ## Installation
 
 The `rnmrfit` package can be installed directly from GitHub using `devtools`:
