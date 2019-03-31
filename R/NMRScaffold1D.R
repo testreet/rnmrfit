@@ -1734,10 +1734,8 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
   object@bounds$upper <- upper
 
   # Propagating normalization and peak units
-  print(lower_bounds(object))
   object <- set_normalized(object, normalized = object@normalized, 
                            include.bounds = TRUE)
-  print(lower_bounds(object))
   object <- set_peak_units(object, peak.units = object@peak_units,
                            include.bounds = TRUE)
 
