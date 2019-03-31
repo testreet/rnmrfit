@@ -1,6 +1,6 @@
 # rnmrfit
 
-This package implements NMR lineshape fitting using the real and imaginary components of the data in the frequency domain. The core of the algorithm is built around the NLOPT nonlinear optimization library with a number of helper script designed to facilitate working with NMR data.
+This package implements NMR lineshape fitting using the real and imaginary components of the data in the frequency domain. The core of the algorithm is built around the NLOPT nonlinear optimization library with a number of helper scripts designed to facilitate working with NMR data.
 
 More information can be found in the accompanying article: https://doi.org/10.1016/j.jmr.2018.11.004
 
@@ -146,7 +146,7 @@ fit <- nmrfit_1d(scaffold)
 plot(fit)
 ```
 
-If you check `?nmrfit_1d` you will see that by default, the fit function generates a set of conservative upper and lower bounds on the parameter estimates. It may necessary to to override these parameters by calling the boundary generation functions explicitly. There are two primary functions to set simple upper and lower boundaries: `set_absolute_bounds` and `set_relative_bounds`. The terms "absolute" and "relative" relate to whether the same bounds are applied to every single peak (such as a minimum and maximm peak width/height) or in relation to the current value of the parameters (such as preventing the chemical shift position from changing by more than 1% of the fit data range). Both absolute and relative constraints can set based on parameters that have been normalized to observed data in the fit range (0-1 x-axis values and 0-1 y-axis values) or their original values in ppm/Hz/intensity. 
+If you check `?nmrfit_1d` you will see that by default, the fit function generates a set of conservative upper and lower bounds on the parameter estimates. It may necessary to to override these parameters by calling the boundary generation functions explicitly. There are two primary functions to set simple upper and lower boundaries: `set_absolute_bounds` and `set_relative_bounds`. "Absolute" bounds are applied the same to every single peak (such as a minimum and maximum peak width/height), whereas  "relative" bounds are applied in relation to the current value of the parameters (such as preventing the chemical shift position from changing by more than 1% of the fit data range starting from initial positions). Both absolute and relative bounds can set based on parameters that have been normalized to the observed data in the fit range (0-1 x-axis values and 0-1 y-axis values) or the original values in ppm/Hz/intensity. 
 
 ```
 #!R
