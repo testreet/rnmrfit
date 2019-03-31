@@ -851,7 +851,7 @@ setMethod("peak_units", "NMRScaffold",
 #' Replace the "peak_units" slot of an NMRScaffold object 
 #'
 #' Generic method to replace the peak_units slot of NMRScaffold1D or 
-#' NMRScaffold2D object. This is a convenience function, see set_peak_types() 
+#' NMRScaffold2D object. This is a convenience function, see set_peak_units() 
 #' for more details.
 #'
 #' @name peak_units-set
@@ -908,6 +908,11 @@ setMethod("set_peak_units", "NMRScaffold",
     stop(msg)
   }
 
+  # Updating bounds if necessary
+  if ( include.bounds ) {
+    object <- .propagate_to_bounds(object, set_peak_units, nmrdata, peak.units)
+  }
+
   # If target peak.units value matches current value, return
   if ( object@peak_units == peak.units ) return(object)
 
@@ -939,12 +944,7 @@ setMethod("set_peak_units", "NMRScaffold",
   # Update parameter slot
   object <- .merge_parameters(object)
 
-  # Updating bounds if necessary
-  if ( include.bounds ) {
-    .propagate_to_bounds(object, set_peak_units, nmrdata, peak.units)
-  } else {
-    object
-  }
+  object
 })
 
 
@@ -1079,7 +1079,12 @@ setGeneric("calc_area",
 #' of current parameter values. However, these bounds can still be
 #' normalized to the data using the normalized argument.
 #'
-#' @param object An NMRScaffold1D or NMRscaffold2D object.
+#' In practice, absolute bounds are primarily useful for preventing
+#' very large phase deviations, preventing the baseline from attempting
+#' to fit peaks and putting a hard constraint on peak widths.
+#'
+#' @param object An NMRScaffold1D or NMRscaffold2D object. NMR data must
+#'               be attached to object to enable normalization.
 #' @param position A vector of two elements corresponding to a lower 
 #'                 and upper bound for peak position. If the normalized
 #'                 argument is true, 0 corresponds to the leftmost range
@@ -1107,8 +1112,9 @@ setGeneric("calc_area",
 #' @param normalized TRUE to set bounds in terms of the underlying data, where
 #'                   the x and y values of the data are scaled between 0 and 1.
 #'                   FALSE to use natural units of ppm/Hz and spectral
-#'                   intensity.
+#'                   intensity. 
 #' @param peak.units The units of peak width -- either 'ppm' or 'hz'. 
+#' @param widen FALSE to prevent new bounds from widening existing bounds. 
 #' @inheritParams methodEllipse
 #'
 #' @return A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
@@ -1118,7 +1124,7 @@ setGeneric("calc_area",
 setGeneric("set_absolute_bounds", 
   function(object, position = NULL, height = NULL, width = NULL, 
            baseline = NULL, phase = NULL,
-           normalized = FALSE, peak.units = 'hz', ...) {
+           normalized = FALSE, peak.units = 'hz', widen = FALSE, ...) {
     standardGeneric("set_absolute_bounds")
   })
 
@@ -1133,7 +1139,13 @@ setGeneric("set_absolute_bounds",
 #' that bounds are applied relative to the current values of the
 #' parameters. 
 #'
-#' @param object An NMRScaffold1D or NMRscaffold2D object.
+#' In practice, relative bounds are primarily useful for preventing 
+#' peak positions from drifting and for fine-tuning a fit once an initial
+#' optimization is performed. It is not recommended to use strict relative
+#' bounds based on rough initial parameter guesses.
+#'
+#' @param object An NMRScaffold1D or NMRscaffold2D object. NMR data must
+#'               be attached to object to enable normalization.
 #' @param position A vector of two elements corresponding to a lower 
 #'                 and upper bound for peak position, where the value
 #'                 is taken as a fraction of the current position.
@@ -1159,6 +1171,7 @@ setGeneric("set_absolute_bounds",
 #'                   the x and y values of the data are scaled between 0 and 1.
 #'                   FALSE to use natural units of ppm/Hz and spectral
 #'                   intensity.
+#' @param widen FALSE to prevent new bounds from widening existing bounds. 
 #' @inheritParams methodEllipse
 #'
 #' @return A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
@@ -1168,46 +1181,31 @@ setGeneric("set_absolute_bounds",
 setGeneric("set_relative_bounds", 
   function(object, position = NULL, height = NULL, width = NULL, 
            baseline = NULL, phase = NULL,
-           normalized = FALSE, ...) {
-    standardGeneric("set_absolute_bounds")
+           normalized = FALSE, widen = FALSE, ...) {
+    standardGeneric("set_relative_bounds")
   })
 
 #------------------------------------------------------------------------
 #' Set conservative bounds on an NMRScaffold1D or NMRScaffold2D object
 #'
-#' Although any NMRScaffold object can act as a boundary on another
-#' NMRScaffold object, this function provides a convenience method
-#' for generating conservative normalized bounds. Essentially, most parameters
-#' are effectively bound to an approximately 0-1 range following normalization.
-#' Keyword arguments can be used to override the default values.
+#' A convenience function that sets reasonable bounds on the fit. These
+#' bounds are assumed to be widely applicable to most simple NMR data.
+#' Each set of bounds can be turned on or off as necessary.
 #'
-#' Warning, these bounds assume that the chemical shift domain is relatively
-#' small (< 0.5 ppm)
-#'
-#' @param object An NMRScaffold1D or NMRscaffold2D object.
-#' @param nmrdata An NMRData object.
-#' @param position Fractional range for position.
-#'                 E.g., if the domain of the chemical shift data covers 0.5 ppm
-#'                 and the initial estimate for the position is 2 ppm, a
-#'                 range of 0.01 would constrain the optimized value for 
-#'                 position to 2 ppm +/- 0.005 (or 0.01*0.5 = 0.005 ppm).
-#' @param height Fractional range for height. E.g., if the initial estimate
-#'               for the height is 500, a range of 0.5 would constrain the
-#'               optimized value to 500 +/- 250 (or 0.5*500).
-#' @param width Fractional range for width. E.g., if the initial estimate
-#'               for the width is 2 Hz, a range of 0.5 would constrain the
-#'               optimized value to 2 Hz +/- 1 (or 0.5*2).
-#' @param baseline Fractional range for baseline. Unlike the peaks,
-#'                 the baseline constraint fraction is calculated based on the
-#'                 the maximum height (intensity) of the data. E.g., if the
-#'                 tallest peak in the data has a value of 150, a range of
-#'                 0.5 constrains the baseline to optimized values of 0 +/- 75 
-#'                 (or 0.5*150).
-#' @param baseline.diff Fractional range for the baseline difference. Similar
-#'                      to baseline, but this parameter controls the difference
-#'                      between real and imaginary baselines.
-#' @param phase Absolute range for phase. E.g., a range of pi/4 constrains the
-#'              optimized phase correction to 0 +/- 45 degrees.
+#' @param object An NMRScaffold1D or NMRscaffold2D object with NMR data
+#'               attached.
+#' @param position TRUE to prevent peaks from leaving the peak area and
+#'                 to keep initial positions to within 20% of the initial
+#'                 values. FALSE to disable.
+#' @param height TRUE to prevent negative peaks and limit peak height to
+#'               50% of the maximum peak value. FALSE to disable.
+#' @param width TRUE to set a minimum peak width of 0.3 Hz and a maximum peak
+#'              width of 3 Hz. FALSE to disable.
+#' @param baseline TRUE to prevent the baseline from exceeding 25% of maximum
+#'                 peak height in the original data. FALSE to disable.
+#' @param phase TRUE to limit phase correction within 45 degrees. FALSE to
+#'              disable.
+#' @param widen FALSE to prevent new bounds from widening existing bounds. 
 #' @inheritParams methodEllipse
 #'
 #' @return A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
@@ -1215,7 +1213,7 @@ setGeneric("set_relative_bounds",
 #' @name set_conservative_bounds
 #' @export
 setGeneric("set_conservative_bounds", 
-  function(object, nmrdata = NULL, position = NULL, 
-           height = NULL, width = NULL, ...) {
+  function(object, position = TRUE, height = TRUE, width = TRUE,
+           baseline = TRUE, phase = TRUE, widen = FALSE, ...) {
     standardGeneric("set_conservative_bounds")
   })
