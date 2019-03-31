@@ -8,14 +8,15 @@
 \usage{
 set_absolute_bounds(object, position = NULL, height = NULL,
   width = NULL, baseline = NULL, phase = NULL, normalized = FALSE,
-  peak.units = "hz", ...)
+  peak.units = "hz", widen = FALSE, ...)
 
 \S4method{set_absolute_bounds}{NMRScaffold1D}(object, position = NULL,
   height = NULL, width = NULL, baseline = NULL, phase = NULL,
-  normalized = FALSE, peak.units = "hz")
+  normalized = FALSE, peak.units = "hz", widen = FALSE)
 }
 \arguments{
-\item{object}{An NMRScaffold1D or NMRscaffold2D object.}
+\item{object}{An NMRScaffold1D or NMRscaffold2D object. NMR data must
+be attached to object to enable normalization.}
 
 \item{position}{A vector of two elements corresponding to a lower 
 and upper bound for peak position. If the normalized
@@ -53,6 +54,8 @@ intensity.}
 
 \item{peak.units}{The units of peak width -- either 'ppm' or 'hz'.}
 
+\item{widen}{FALSE to prevent new bounds from widening existing bounds.}
+
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \value{
@@ -67,4 +70,9 @@ width, etc... Note that the term "absolute" refers to the fact
 that the same bounds are applied to each and every peak, regardless
 of current parameter values. However, these bounds can still be
 normalized to the data using the normalized argument.
+}
+\details{
+In practice, absolute bounds are primarily useful for preventing
+very large phase deviations, preventing the baseline from attempting
+to fit peaks and putting a hard constraint on peak widths.
 }

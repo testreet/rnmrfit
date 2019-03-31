@@ -4,7 +4,7 @@
 \alias{plot.NMRData1D}
 \title{Plot NMRData1D object}
 \usage{
-plot.NMRData1D(x, components = "r", nrows = 2)
+plot.NMRData1D(x, components = "r", nrows = 2, reverse = TRUE)
 }
 \arguments{
 \item{x}{NMRData1D object.}
@@ -14,6 +14,9 @@ imaginary or both components. If both components
 are selected, they are displayed in separate subplots.}
 
 \item{nrows}{Max number of rows to display subplots.}
+
+\item{reverse}{TRUE to order x-axis with large values on the left and 
+small values on the right like typical NMR plots.}
 }
 \description{
 Generates an interactive plot object using the plotly package.

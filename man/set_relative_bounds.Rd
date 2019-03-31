@@ -8,14 +8,15 @@
 \usage{
 set_relative_bounds(object, position = NULL, height = NULL,
   width = NULL, baseline = NULL, phase = NULL, normalized = FALSE,
-  ...)
+  widen = FALSE, ...)
 
 \S4method{set_relative_bounds}{NMRScaffold1D}(object, position = NULL,
   height = NULL, width = NULL, baseline = NULL, phase = NULL,
-  normalized = TRUE)
+  normalized = TRUE, widen = FALSE)
 }
 \arguments{
-\item{object}{An NMRScaffold1D or NMRscaffold2D object.}
+\item{object}{An NMRScaffold1D or NMRscaffold2D object. NMR data must
+be attached to object to enable normalization.}
 
 \item{position}{A vector of two elements corresponding to a lower 
 and upper bound for peak position, where the value
@@ -48,6 +49,8 @@ the x and y values of the data are scaled between 0 and 1.
 FALSE to use natural units of ppm/Hz and spectral
 intensity.}
 
+\item{widen}{FALSE to prevent new bounds from widening existing bounds.}
+
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \value{
@@ -61,4 +64,10 @@ constraints on basic peak parameters such as position, height,
 width, etc... Note that the term "relative" refers to the fact
 that bounds are applied relative to the current values of the
 parameters.
+}
+\details{
+In practice, relative bounds are primarily useful for preventing 
+peak positions from drifting and for fine-tuning a fit once an initial
+optimization is performed. It is not recommended to use strict relative
+bounds based on rough initial parameter guesses.
 }
