@@ -1012,10 +1012,10 @@ plot.NMRFit1D <- function(x, components = 'r',  apply.phase = TRUE,
 
   # Defining function to initialize plot
   f_init <- function(y, color, name) {
-    plot_ly(x = d$direct.shift, y = y, color = I(color), 
-            name = I(name), type = 'scatter', mode = 'lines',
-            legendgroup = 1) %>%
-      layout(legend = legend.opts)
+    p <- plot_ly(x = d$direct.shift, y = y, color = I(color), 
+                 name = I(name), type = 'scatter', mode = 'lines',
+                 legendgroup = 1) %>%
+        layout(legend = legend.opts)
 
     if ( reverse ) p <- p %>% layout(xaxis = list(autorange = "reversed"))
   }

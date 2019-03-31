@@ -146,7 +146,7 @@ fit <- nmrfit_1d(scaffold)
 plot(fit)
 ```
 
-If you check `?nmrfit_1d` you will see that by default, the fit function generates a set of conservative upper and lower bounds on the parameter estimates. It may necessary to to override these parameters by calling the boundary generation functions explicitly. See `?set_conservative_bounds.NMRScaffold_1D` to see what the following options mean:
+If you check `?nmrfit_1d` you will see that by default, the fit function generates a set of conservative upper and lower bounds on the parameter estimates. It may necessary to to override these parameters by calling the boundary generation functions explicitly. There are two primary functions to set simple upper and lower boundaries: `set_absolute_bounds` and `set_relative_bounds`. The terms "absolute" and "relative" relate to whether the same bounds are applied to every single peak (such as a minimum and maximm peak width/height) or in relation to the current value of the parameters (such as preventing the chemical shift position from changing by more than 1% of the fit data range). Both absolute and relative constraints can set based on parameters that have been normalized to observed data in the fit range (0-1 x-axis values and 0-1 y-axis values) or their original values in ppm/Hz/intensity. 
 
 ```
 #!R
@@ -165,9 +165,19 @@ scaffold <- nmrscaffold_1d(peaks, nmrdata, include.phase = TRUE,
                            baseline.degree = 3, n.knots =3, 
                            include.difference = TRUE)
 
-# Setting manual constraints
-scaffold <- set_conservative_bounds(scaffold, width = 2, position = 0.1, 
-				    baseline = 0.1, phase = pi/4)
+# Setting some manual constraints
+
+# Limiting phase correction to pi/6 and setting peak width maximum (in Hz)
+scaffold <- set_absolute_bounds(scaffold, phase = c(-pi/6, pi/6), 
+			        width = c(0.3, 30), normalized = FALSE, 
+				peak.units = 'hz')
+
+# Preventing negative peak heights
+scaffold <- set_absolute_bounds(scaffold, height = c(0, Inf), normalized = TRUE)
+
+# Checking current bounds
+print(lower_bounds(scaffold))
+print(upper_bounds(scaffold))
 
 # Fitting using default parameters
 fit <- nmrfit_1d(scaffold)
