@@ -1195,14 +1195,14 @@ setGeneric("set_relative_bounds",
 #' @param object An NMRScaffold1D or NMRscaffold2D object with NMR data
 #'               attached.
 #' @param position TRUE to prevent peaks from leaving the peak area and
-#'                 to keep initial positions to within 20% of the initial
-#'                 values. FALSE to disable.
+#'                 to keep initial positions to within 20 percent of the 
+#'                 initial values. FALSE to disable.
 #' @param height TRUE to prevent negative peaks and limit peak height to
-#'               50% of the maximum peak value. FALSE to disable.
+#'               50 percent of the maximum peak value. FALSE to disable.
 #' @param width TRUE to set a minimum peak width of 0.3 Hz and a maximum peak
 #'              width of 3 Hz. FALSE to disable.
-#' @param baseline TRUE to prevent the baseline from exceeding 25% of maximum
-#'                 peak height in the original data. FALSE to disable.
+#' @param baseline TRUE to prevent the baseline from exceeding 25 percent of
+#'                 maximum peak height in the original data. FALSE to disable.
 #' @param phase TRUE to limit phase correction within 45 degrees. FALSE to
 #'              disable.
 #' @param widen FALSE to prevent new bounds from widening existing bounds. 
