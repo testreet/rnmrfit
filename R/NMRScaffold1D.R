@@ -1446,7 +1446,7 @@ setMethod("calc_area", "NMRScaffold1D",
   if ( length(new.upper) == 1) new.upper <- rep(new.upper, length(old.upper))
 
   logic.lower <- is.finite(new.lower)
-  logic.upper <- is.finite(old.lower)
+  logic.upper <- is.finite(new.upper)
 
   if (! widen) {
     logic.lower <- logic.lower & (new.lower > old.lower)
@@ -1669,7 +1669,7 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
     l.position <- r.peaks[, p.columns]*position[1]
     u.position <- r.peaks[, p.columns]*position[2]
     new.bounds <- .update_bounds(l.peaks[, p.columns], l.position,
-                                u.peaks[, p.columns], u.position, widen)
+                                 u.peaks[, p.columns], u.position, widen)
     l.peaks[, p.columns] <- new.bounds$lower 
     u.peaks[, p.columns] <- new.bounds$upper
   }
@@ -1770,7 +1770,7 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
   }
 
   if ( height ) {
-    abs.height <- c(0, 0.5)
+    abs.height <- c(0, 1.5)
   } else {
     abs.height <- NULL
   }
@@ -1794,7 +1794,7 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
 
   # Width constraints are not normalized
   if ( width ) {
-    object <- set_absolute_bounds(object, width = c(0, 3), 
+    object <- set_absolute_bounds(object, width = c(0.003, 3), 
                                   normalized = FALSE, peak.units = 'hz',
                                   widen = widen)
   }
