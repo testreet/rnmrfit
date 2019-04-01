@@ -1199,7 +1199,7 @@ setGeneric("set_relative_bounds",
 #'                 initial values. FALSE to disable.
 #' @param height TRUE to prevent negative peaks and limit peak height to
 #'               50 percent of the maximum peak value. FALSE to disable.
-#' @param width TRUE to set a minimum peak width of 0.3 Hz and a maximum peak
+#' @param width TRUE to set a minimum peak width of 0 Hz and a maximum peak
 #'              width of 3 Hz. FALSE to disable.
 #' @param baseline TRUE to prevent the baseline from exceeding 25 percent of
 #'                 maximum peak height in the original data. FALSE to disable.

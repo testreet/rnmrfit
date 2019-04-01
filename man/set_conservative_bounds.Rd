@@ -24,7 +24,7 @@ initial values. FALSE to disable.}
 \item{height}{TRUE to prevent negative peaks and limit peak height to
 50 percent of the maximum peak value. FALSE to disable.}
 
-\item{width}{TRUE to set a minimum peak width of 0.3 Hz and a maximum peak
+\item{width}{TRUE to set a minimum peak width of 0 Hz and a maximum peak
 width of 3 Hz. FALSE to disable.}
 
 \item{baseline}{TRUE to prevent the baseline from exceeding 25 percent of

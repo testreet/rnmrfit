@@ -1794,7 +1794,7 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
 
   # Width constraints are not normalized
   if ( width ) {
-    object <- set_absolute_bounds(object, width = c(0.3, 3), 
+    object <- set_absolute_bounds(object, width = c(0, 3), 
                                   normalized = FALSE, peak.units = 'hz',
                                   widen = widen)
   }
