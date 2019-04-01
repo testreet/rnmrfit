@@ -15,6 +15,6 @@ peak_units(object) <- value
 }
 \description{
 Generic method to replace the peak_units slot of NMRScaffold1D or 
-NMRScaffold2D object. This is a convenience function, see set_peak_types() 
+NMRScaffold2D object. This is a convenience function, see set_peak_units() 
 for more details.
 }

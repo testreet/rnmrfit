@@ -1061,6 +1061,12 @@ setMethod("set_normalized", "NMRScaffold1D",
   function(object, nmrdata = NULL, normalized = TRUE, 
            include.bounds = FALSE) {
 
+  # Updating bounds, first, if necessary
+  if ( include.bounds ) {
+    object <- .propagate_to_bounds(object, set_normalized, 
+                                   nmrdata = nmrdata, normalized = normalized)
+  } 
+
   # If target normalization state matches current state, return
   if ( object@normalized == normalized ) return(object)
 
@@ -1121,17 +1127,10 @@ setMethod("set_normalized", "NMRScaffold1D",
   object@baseline_difference <- baseline.diff
   object@knots <- knots
   object@constraints <- constraints
-  object@normalized <- TRUE
+  object@normalized <- normalized 
 
   # Update parameter slot
   object <- .merge_parameters(object)
-
-  # Updating bounds if necessary
-  if ( include.bounds ) {
-    .propagate_to_bounds(object, set_normalized, nmrdata, normalized)
-  } else {
-    object
-  }
 })
 
 #------------------------------------------------------------------------
@@ -1417,91 +1416,188 @@ setMethod("calc_area", "NMRScaffold1D",
 
 
 #------------------------------------------------------------------------
-#' @rdname set_conservative_bounds
+# Checks simple bounds to make sure they are valid
+.check_bounds <- function(constraints) {
+
+  if ( length(constraints) != 2 ) {
+    msg <- paste("All constraints must be vectors of two elements consisting",
+                 "of a lower and upper bound.")
+    stop(msg)
+  }
+
+  if ( constraints[1] > constraints[2] ) {
+    msg <- paste("Lower bound must be greater than upper bound.",
+                 "Proceeding with current constraints will result in a",
+                 "fit error.")
+    warning(msg)
+  }
+
+}
+
+#------------------------------------------------------------------------
+# Updates bounds with an option to prevent widening
+.update_bounds <- function(old.lower, new.lower,
+                           old.upper, new.upper, widen = FALSE) {
+
+  if ( length(new.lower) == 1) new.lower <- rep(new.lower, length(old.lower))
+  if ( length(new.upper) == 1) new.upper <- rep(new.upper, length(old.upper))
+
+  logic.lower <- is.finite(new.lower)
+  logic.upper <- is.finite(old.lower)
+
+  if (! widen) {
+    logic.lower <- logic.lower & (new.lower > old.lower)
+    logic.upper <- logic.upper & (new.upper < old.upper)
+  }
+
+  old.lower[logic.lower] <- new.lower[logic.lower]
+  old.upper[logic.upper] <- new.upper[logic.upper]
+
+  list(lower = old.lower, upper = old.upper)
+}
+
+#------------------------------------------------------------------------
+#' @rdname initialize_bounds
+setMethod(".initialize_bounds", "NMRScaffold1D", 
+  function(object, overwrite = FALSE) {
+
+    # Handling bounds if they exist
+    bounds <- list(lower = object@bounds$lower, 
+                   upper = object@bounds$upper)
+
+    # Selecting default values
+    values <- list(lower = -Inf, upper = +Inf)
+
+    for ( name in names(bounds) ) {
+      if ( is.null(bounds[[name]]) || overwrite ) {
+        bound <- object
+
+        peaks <- bound@peaks
+        d.columns <- .data_columns(object, TRUE)
+        peaks[ , d.columns] <- values[[name]]
+        bound@peaks <- peaks
+
+        # Since baseline and phase elements must be numeric, ensure that NA
+        # values take numeric form
+        bound@baseline <- rep(values[[name]], length(bound@baseline))
+        bound@baseline_difference <- rep(values[[name]], 
+                                         length(object@baseline_difference))
+        bound@phase <- rep(values[[name]], length(object@phase))
+
+        bound@constraints <- data.frame(
+          id1 = character(), id2 = character(), 
+          peak1 = character(), peak2 = character(),
+          difference = numeric(), ratio = numeric())
+
+        bounds[[name]] <- .merge_parameters(bound, TRUE)
+      }
+    }
+
+    object@bounds$lower <- bounds$lower
+    object@bounds$upper <- bounds$upper
+
+    object
+  })
+
+#------------------------------------------------------------------------
+#' @rdname set_absolute_bounds
 #' @export
-setMethod("set_conservative_bounds", "NMRScaffold1D",
-  function(object, nmrdata = NULL, position = NULL, 
-           height = NULL, width = NULL, 
-           phase = pi/2, baseline = 0.25, baseline.diff = 0.25) { 
+setMethod("set_absolute_bounds", "NMRScaffold1D",
+  function(object, position = NULL, height = NULL, width = NULL, 
+           baseline = NULL, phase = NULL, 
+           normalized = FALSE, peak.units = 'hz', widen = FALSE) {
 
-  # Checking 1D data
-  nmrdata <- .check_data(object, nmrdata)
-  x <- nmrdata@processed$direct.shift
-  x.scale <- max(x) - min(x)
+  # Initializing bounds
+  object <- .initialize_bounds(object)
+  lower <- object@bounds$lower
+  upper <- object@bounds$upper
 
-  # Normalizing current values to allow relative overrides
-  object <- set_normalized(object, normalized = TRUE)
+  # Ensuring proper normalization and peak units
+  lower <- set_normalized(lower, normalized = normalized)
+  upper <- set_normalized(upper, normalized = normalized)
+
+  lower <- set_peak_units(lower, peak.units = peak.units)
+  upper <- set_peak_units(upper, peak.units = peak.units)
 
   # Getting current values
-  peaks <- object@peaks
-  current.baseline <- object@baseline
-  current.baseline.diff <- object@baseline_difference
-  current.phase <- object@phase
+  l.peaks <- lower@peaks
+  u.peaks <- upper@peaks
 
-  peak.type <- object@peak_type
+  l.baseline <- lower@baseline
+  u.baseline <- upper@baseline
 
-  # Setting conservative boundaries
+  l.baseline.diff <- lower@baseline_difference
+  u.baseline.diff <- upper@baseline_difference
+
+  l.phase <- lower@phase
+  u.phase <- upper@phase
+
   p.columns <- .position_columns(object, TRUE)
   h.columns <- .height_columns(object, TRUE)
   w.columns <- .width_columns(object, TRUE)
 
-  l.peaks <- peaks
-  l.peaks[, -c(1, 2)] <- 1e-8
-
-  u.peaks <-peaks 
-  u.peaks[, p.columns] <- 1
-  u.peaks[, h.columns] <- 5
-  u.peaks[, w.columns] <- 5/x.scale
-
+  # Position
   if (! is.null(position) ) {
-    l.peaks[, p.columns] <- peaks[, p.columns] - position*peaks[, p.columns]
-    u.peaks[, p.columns] <- peaks[, p.columns] + position*peaks[, p.columns]
+    .check_bounds(position)
+    new.bounds <- .update_bounds(l.peaks[, p.columns], position[1],
+                                u.peaks[, p.columns], position[2], widen)
+    l.peaks[, p.columns] <- new.bounds$lower 
+    u.peaks[, p.columns] <- new.bounds$upper
   }
 
+  # Height
   if (! is.null(height) ) {
-    l.peaks[, h.columns] <- peaks[, h.columns] - height*peaks[, h.columns]
-    u.peaks[, h.columns] <- peaks[, h.columns] + height*peaks[, h.columns]
+    .check_bounds(height)
+    new.bounds <- .update_bounds(l.peaks[, h.columns], height[1],
+                                u.peaks[, h.columns], height[2], widen)
+    l.peaks[, h.columns] <- new.bounds$lower 
+    u.peaks[, h.columns] <- new.bounds$upper
   }
 
+  # Width
   if (! is.null(width) ) {
-    l.peaks[, w.columns] <- peaks[, w.columns] - width*peaks[, w.columns]
-    u.peaks[, w.columns] <- peaks[, w.columns] + width*peaks[, w.columns]
+    .check_bounds(width)
+    new.bounds <- .update_bounds(l.peaks[, w.columns], width[1],
+                                u.peaks[, w.columns], width[2], widen)
+    l.peaks[, w.columns] <- new.bounds$lower 
+    u.peaks[, w.columns] <- new.bounds$upper
   }
 
+  # Baseline -- both real and imaginary components treated in the same way
   if (! is.null(baseline) ) {
-    l.baseline <- rep(-baseline, length(current.baseline))
-    u.baseline <- rep(baseline, length(current.baseline))
+    .check_bounds(baseline)
+    new.bounds <- .update_bounds(l.baseline, baseline[1],
+                                u.baseline, baseline[2], widen)
+    l.baseline <- new.bounds$lower
+    u.baseline <- new.bounds$upper
+
+    new.bounds <- .update_bounds(l.baseline.diff, baseline[1],
+                                u.baseline.diff, baseline[2], widen)
+    l.baseline.diff <- new.bounds$lower
+    u.baseline.diff <- new.bounds$upper
   }
 
-  if (! is.null(baseline) ) {
-    l.baseline.diff <- rep(-baseline, length(current.baseline.diff))
-    u.baseline.diff <- rep(baseline, length(current.baseline.diff))
-  }
-
+  # Phase
   if (! is.null(phase) ) {
-    l.phase <- rep(-phase, length(current.phase))
-    u.phase <- rep(phase, length(current.phase))
+    .check_bounds(phase)
+    new.bounds <- .update_bounds(l.phase, phase[1],
+                                u.phase, phase[2], widen)
+    l.phase <- new.bounds$lower
+    u.phase <- new.bounds$upper
   }
-
-  # Conservative boundaries are normalized, with width in Hz
-  normalized <- TRUE
-  peak.units <- 'hz'
 
   # Combine parameters
-  l.parameters <- .gen_parameters(object, l.peaks, l.baseline, 
+  l.parameters <- .gen_parameters(lower, l.peaks, l.baseline, 
                                           l.baseline.diff, l.phase) 
-  u.parameters <- .gen_parameters(object, u.peaks, u.baseline, 
+  u.parameters <- .gen_parameters(upper, u.peaks, u.baseline, 
                                           u.baseline.diff, u.phase) 
 
   # Generating and setting scaffold objects
-  lower <- new("NMRScaffold1D", peaks = l.peaks, baseline = l.baseline,
+  lower <- new("NMRScaffold1D", lower, peaks = l.peaks, baseline = l.baseline,
                baseline_difference = l.baseline.diff, phase = l.phase, 
-               parameters = l.parameters, constraints = object@constraints,
-               normalized = normalized, peak_type = peak.type,
-               peak_units = peak.units, nmrdata = NULL,
-               bounds = list(lower = NULL, upper = NULL))
+               parameters = l.parameters)
 
-  upper <- new("NMRScaffold1D", lower, peaks = u.peaks, baseline = u.baseline,
+  upper <- new("NMRScaffold1D", upper, peaks = u.peaks, baseline = u.baseline,
                baseline_difference = u.baseline.diff, phase = u.phase, 
                parameters = u.parameters)
 
@@ -1509,5 +1605,194 @@ setMethod("set_conservative_bounds", "NMRScaffold1D",
   object@bounds$lower <- lower
   object@bounds$upper <- upper
 
+  # Propagating normalization and peak units
+  object <- set_normalized(object, normalized = object@normalized, 
+                           include.bounds = TRUE)
+  object <- set_peak_units(object, peak.units = object@peak_units,
+                           include.bounds = TRUE)
+
   object
 })
+
+#------------------------------------------------------------------------
+#' @rdname set_relative_bounds
+#' @export
+setMethod("set_relative_bounds", "NMRScaffold1D",
+  function(object, position = NULL, height = NULL, width = NULL, 
+           baseline = NULL, phase = NULL, 
+           normalized = TRUE, widen = FALSE) {
+
+  # Initializing reference values for fractions 
+  reference <- set_normalized(object, normalized = normalized)
+
+  r.peaks <- reference@peaks
+  r.baseline <- reference@baseline
+  r.baseline.diff <- reference@baseline_difference
+  r.phase <- reference@phase
+
+  p.columns <- .position_columns(reference, TRUE)
+  h.columns <- .height_columns(reference, TRUE)
+  w.columns <- .width_columns(reference, TRUE)
+
+  # Initializing bounds
+  reference <- .initialize_bounds(reference)
+  lower <- reference@bounds$lower
+  upper <- reference@bounds$upper
+
+  # Ensuring proper normalization
+  lower <- set_normalized(lower, normalized = normalized)
+  upper <- set_normalized(upper, normalized = normalized)
+
+  # Getting current values
+  l.peaks <- lower@peaks
+  u.peaks <- upper@peaks
+
+  l.baseline <- lower@baseline
+  u.baseline <- upper@baseline
+
+  l.baseline.diff <- lower@baseline_difference
+  u.baseline.diff <- upper@baseline_difference
+
+  l.phase <- lower@phase
+  u.phase <- upper@phase
+
+  # Position
+  if (! is.null(position) ) {
+    .check_bounds(position)
+    l.position <- r.peaks[, p.columns]*position[1]
+    u.position <- r.peaks[, p.columns]*position[2]
+    new.bounds <- .update_bounds(l.peaks[, p.columns], l.position,
+                                u.peaks[, p.columns], u.position, widen)
+    l.peaks[, p.columns] <- new.bounds$lower 
+    u.peaks[, p.columns] <- new.bounds$upper
+  }
+
+  # Height
+  if (! is.null(height) ) {
+    .check_bounds(height)
+    l.height <- r.peaks[, h.columns]*height[1]
+    u.height <- r.peaks[, h.columns]*height[2]
+    new.bounds <- .update_bounds(l.peaks[, h.columns], l.height,
+                                u.peaks[, h.columns], u.height, widen)
+    l.peaks[, h.columns] <- new.bounds$lower 
+    u.peaks[, h.columns] <- new.bounds$upper
+  }
+
+  # Width
+  if (! is.null(width) ) {
+    .check_bounds(width)
+    l.width <- r.peaks[, w.columns]*width[1]
+    u.width <- r.peaks[, w.columns]*width[2]
+    new.bounds <- .update_bounds(l.peaks[, w.columns], l.width,
+                                u.peaks[, w.columns], u.width, widen)
+    l.peaks[, w.columns] <- new.bounds$lower 
+    u.peaks[, w.columns] <- new.bounds$upper
+  }
+
+  # Baseline -- both real and imaginary components treated in the same way
+  if (! is.null(baseline) ) {
+    .check_bounds(baseline)
+    new.bounds <- .update_bounds(l.baseline, r.baseline*baseline[1],
+                                u.baseline, r.baseline*baseline[2], 
+                                widen)
+    l.baseline <- new.bounds$lower
+    u.baseline <- new.bounds$upper
+
+    new.bounds <- .update_bounds(l.baseline.diff, r.baseline.diff*baseline[1],
+                                u.baseline.diff, r.baseline.diff*baseline[2], 
+                                widen)
+    l.baseline.diff <- new.bounds$lower
+    u.baseline.diff <- new.bounds$upper
+  }
+
+  # Phase
+  if (! is.null(phase) ) {
+    .check_bounds(phase)
+    new.bounds <- .update_bounds(l.phase, r.phase*phase[1],
+                                u.phase, r.phase*phase[2], widen)
+    l.phase <- new.bounds$lower
+    u.phase <- new.bounds$upper
+  }
+
+  # Combine parameters
+  l.parameters <- .gen_parameters(lower, l.peaks, l.baseline, 
+                                         l.baseline.diff, l.phase) 
+  u.parameters <- .gen_parameters(upper, u.peaks, u.baseline, 
+                                         u.baseline.diff, u.phase) 
+
+  # Generating and setting scaffold objects
+  lower <- new("NMRScaffold1D", lower, peaks = l.peaks, baseline = l.baseline,
+               baseline_difference = l.baseline.diff, phase = l.phase, 
+               parameters = l.parameters)
+
+  upper <- new("NMRScaffold1D", upper, peaks = u.peaks, baseline = u.baseline,
+               baseline_difference = u.baseline.diff, phase = u.phase, 
+               parameters = u.parameters)
+
+  # Setting the boundaries
+  object@bounds$lower <- lower
+  object@bounds$upper <- upper
+
+  # Propagating normalization and peak units
+  object <- set_normalized(object, normalized = object@normalized, 
+                           include.bounds = TRUE)
+  object <- set_peak_units(object, peak.units = object@peak_units,
+                           include.bounds = TRUE)
+
+  object
+  })
+
+
+
+#------------------------------------------------------------------------
+#' @rdname set_conservative_bounds
+#' @export
+setMethod("set_conservative_bounds", "NMRScaffold1D",
+  function(object, position = TRUE,  height = TRUE, width = TRUE, 
+           baseline = TRUE, phase = TRUE, widen = FALSE) { 
+
+  # First, do a single pass over absolute normalized bounds
+  if ( position ) {
+    abs.position <- c(0, 1)
+  } else {
+    abs.position <- NULL
+  }
+
+  if ( height ) {
+    abs.height <- c(0, 0.5)
+  } else {
+    abs.height <- NULL
+  }
+
+  if ( baseline ) {
+    abs.baseline <- c(-0.25, 0.25)
+  } else {
+    abs.baseline <- NULL
+  }
+
+  if ( phase ) {
+    abs.phase <- c(-pi/2, pi/2)
+  } else {
+    abs.phase <- NULL
+  }
+
+  object <- set_absolute_bounds(object, position = abs.position, 
+                                height = abs.height, baseline = abs.baseline,
+                                phase = abs.phase, normalized = TRUE,
+                                widen = widen)
+
+  # Width constraints are not normalized
+  if ( width ) {
+    object <- set_absolute_bounds(object, width = c(0.3, 3), 
+                                  normalized = FALSE, peak.units = 'hz',
+                                  widen = widen)
+  }
+
+  # Finally, the only relative constraints are on position
+  if ( position ) {
+    object <- set_relative_bounds(object, position = c(0.8, 1.2), 
+                                  normalized = TRUE, widen = widen)
+  }
+
+  object
+  })

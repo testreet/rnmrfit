@@ -83,40 +83,6 @@ NMRFit1D <- setClass('NMRFit1D',
 #========================================================================>
 
 #------------------------------------------------------------------------
-# Generate a constraint function on overall parameters based on lower bounds
-.f_lower <- function(object) {
-
-  # Get variables
-  parameters <- object@parameters
-  bounds <- object@bounds$lower@parameters
-
-  mat = -diag(length(parameters))
-
-  function(p) {
-    constraints <- -p + bounds
-    list(constraints = constraints, jacobian = mat)
-  }
-  
-}
-
-#------------------------------------------------------------------------
-# Generate a constraint function on overall parameters based on upper bounds
-.f_upper <- function(object) {
-
-  # Get variables
-  parameters <- object@parameters
-  bounds <- object@bounds$upper@parameters
-
-  mat = diag(length(parameters))
-
-  function(p) {
-    constraints <- p - bounds
-    list(constraints = constraints, jacobian = mat)
-  }
-  
-}
-
-#------------------------------------------------------------------------
 # Generate a constraint function on peak positions
 .f_position <- function(object, leeway, logic) {
 
@@ -449,7 +415,12 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
 
   if ( bounds ) {
     if ( is.null(lower) || is.null(upper) ) {
-      bounded <- set_conservative_bounds(object, nmrdata)
+
+      # Setting nmrdata in case it was provided externally
+      bounded <- object
+      bounded@nmrdata <- nmrdata
+      
+      bounded <- set_conservative_bounds(object)
     }
 
     if ( is.null(lower) ) lower <- bounded@bounds$lower
@@ -530,15 +501,6 @@ nmrfit_1d <- function(object, nmrdata = NULL, normalized = TRUE,
   # Finally, forcing order on specified peaks
   if ( length(ordered.peaks) > 0 ) {
     ineq <- c(ineq, .f_order(object, x[2] - x[1], ordered.peaks))
-  }
-
-  # Adding simple lower and upper bounds if they exist
-  if ( bounds ) {
-    lower <- object@bounds$lower
-    upper <- object@bounds$upper
-
-    if (! is.null(object@bounds$lower) ) ineq <- c(ineq, .f_lower(object))
-    if (! is.null(object@bounds$upper) ) ineq <- c(ineq, .f_upper(object))
   }
 
   # Generating overall constraint functions
@@ -991,6 +953,8 @@ setMethod("set_peak_units", "NMRFit1D",
 #'                   sum.lineshapes is TRUE and omitted if sum.lineshapes is
 #'                   FALSE. Set fit.legend to TRUE or FALSE to override this
 #'                   behaviour.
+#' @param reverse TRUE to order x-axis with large values on the left and 
+#'                small values on the right like typical NMR plots.
 #'
 #' @return A ggplot2 plot.
 #'
@@ -1000,7 +964,7 @@ plot.NMRFit1D <- function(x, components = 'r',  apply.phase = TRUE,
                           include.convolution = TRUE,
                           deconvolve.residual = FALSE,
                           nrows = 2, legend.position = 'bottom', 
-                          fit.legend = NULL) { 
+                          fit.legend = NULL, reverse = TRUE) { 
 
   # Switching to absolute representation
   nmrfit <- set_peak_units(x, peak.units = 'ppm')
@@ -1048,10 +1012,12 @@ plot.NMRFit1D <- function(x, components = 'r',  apply.phase = TRUE,
 
   # Defining function to initialize plot
   f_init <- function(y, color, name) {
-    plot_ly(x = d$direct.shift, y = y, color = I(color), 
-            name = I(name), type = 'scatter', mode = 'lines',
-            legendgroup = 1) %>%
-      layout(legend = legend.opts)
+    p <- plot_ly(x = d$direct.shift, y = y, color = I(color), 
+                 name = I(name), type = 'scatter', mode = 'lines',
+                 legendgroup = 1) %>%
+        layout(legend = legend.opts)
+
+    if ( reverse ) p <- p %>% layout(xaxis = list(autorange = "reversed"))
   }
 
   if ( plot.r ) plots$r <- f_init(Re(d$intensity), 'black', 'Real')

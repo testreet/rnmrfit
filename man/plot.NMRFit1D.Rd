@@ -7,7 +7,7 @@
 plot.NMRFit1D(x, components = "r", apply.phase = TRUE,
   sum.lineshapes = TRUE, sum.baseline = TRUE,
   include.convolution = TRUE, deconvolve.residual = FALSE, nrows = 2,
-  legend.position = "bottom", fit.legend = NULL)
+  legend.position = "bottom", fit.legend = NULL, reverse = TRUE)
 }
 \arguments{
 \item{x}{An NMRFit1D object.}
@@ -37,6 +37,9 @@ included in the fit.}
 sum.lineshapes is TRUE and omitted if sum.lineshapes is
 FALSE. Set fit.legend to TRUE or FALSE to override this
 behaviour.}
+
+\item{reverse}{TRUE to order x-axis with large values on the left and 
+small values on the right like typical NMR plots.}
 }
 \value{
 A ggplot2 plot.
