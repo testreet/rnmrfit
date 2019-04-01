@@ -1014,15 +1014,18 @@ setMethod("set_peak_type", "NMRScaffold1D",
 
     d$l.height <- frac.lorenz*d$height
     d$g.height <- (1 - frac.lorenz)*d$height
-    d$width <- d$area/(pi*d$l.height + sqrt(pi)*d$g.height)
+    new.width <- d$area/(pi*d$l.height + sqrt(pi)*d$g.height)
+    d$width <- ifelse(is.finite(new.width), new.width, d$width)
     d <- d[, .all_columns(object, peak.type = 'pvoigt')]
 
   } else if ( peak.type == 'voigt' ) {
 
     d$l.width = frac.lorenz*d$width
     d$g.width = (1 - frac.lorenz)*d$width
-    d$height = d$area*Re(Faddeeva_w(complex(im=d$l.width)/(sqrt(2)*d$g.width)))/
-                      (sqrt(2*pi)*d$g.width)
+    
+    new.height = d$area*Re(Faddeeva_w(complex(im=d$l.width)/(sqrt(2)*d$g.width)))/
+                       (sqrt(2*pi)*d$g.width)
+    d$height <- ifelse(is.finite(new.height), new.height, d$height)
     d <- d[, .all_columns(object, peak.type = 'voigt')]
 
   }
@@ -1548,19 +1551,23 @@ setMethod("set_absolute_bounds", "NMRScaffold1D",
   # Height
   if (! is.null(height) ) {
     .check_bounds(height)
-    new.bounds <- .update_bounds(l.peaks[, h.columns], height[1],
-                                u.peaks[, h.columns], height[2], widen)
-    l.peaks[, h.columns] <- new.bounds$lower 
-    u.peaks[, h.columns] <- new.bounds$upper
+    # If there are multiple width columns, flatten them
+    n <- length(h.columns)
+    new.bounds <- .update_bounds(unlist(l.peaks[, h.columns]), height[1],
+                                 unlist(u.peaks[, h.columns]), height[2], widen)
+    l.peaks[, h.columns] <- matrix(new.bounds$lower, ncol = n)
+    u.peaks[, h.columns] <- matrix(new.bounds$upper, ncol = n)
   }
 
   # Width
   if (! is.null(width) ) {
     .check_bounds(width)
-    new.bounds <- .update_bounds(l.peaks[, w.columns], width[1],
-                                u.peaks[, w.columns], width[2], widen)
-    l.peaks[, w.columns] <- new.bounds$lower 
-    u.peaks[, w.columns] <- new.bounds$upper
+    # If there are multiple width columns, flatten them
+    n <- length(w.columns)
+    new.bounds <- .update_bounds(unlist(l.peaks[, w.columns]), width[1],
+                                 unlist(u.peaks[, w.columns]), width[2], widen)
+    l.peaks[, w.columns] <- matrix(new.bounds$lower, ncol = n)
+    u.peaks[, w.columns] <- matrix(new.bounds$upper, ncol = n)
   }
 
   # Baseline -- both real and imaginary components treated in the same way
@@ -1670,23 +1677,27 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
   # Height
   if (! is.null(height) ) {
     .check_bounds(height)
-    l.height <- r.peaks[, h.columns]*height[1]
-    u.height <- r.peaks[, h.columns]*height[2]
-    new.bounds <- .update_bounds(l.peaks[, h.columns], l.height,
-                                u.peaks[, h.columns], u.height, widen)
-    l.peaks[, h.columns] <- new.bounds$lower 
-    u.peaks[, h.columns] <- new.bounds$upper
+    # If there are multiple height columns, flatten them
+    n <- length(w.columns)
+    l.height <- unlist(r.peaks[, h.columns])*height[1]
+    u.height <- unlist(r.peaks[, h.columns])*height[2]
+    new.bounds <- .update_bounds(unlist(l.peaks[, h.columns]), l.height,
+                                 unlist(u.peaks[, h.columns]), u.height, widen)
+    l.peaks[, h.columns] <- matrix(new.bounds$lower, ncol = n)
+    u.peaks[, h.columns] <- matrix(new.bounds$upper, ncol = n)
   }
 
   # Width
   if (! is.null(width) ) {
     .check_bounds(width)
-    l.width <- r.peaks[, w.columns]*width[1]
-    u.width <- r.peaks[, w.columns]*width[2]
-    new.bounds <- .update_bounds(l.peaks[, w.columns], l.width,
-                                u.peaks[, w.columns], u.width, widen)
-    l.peaks[, w.columns] <- new.bounds$lower 
-    u.peaks[, w.columns] <- new.bounds$upper
+    # If there are multiple width columns, flatten them
+    n <- length(w.columns)
+    l.width <- unlist(r.peaks[, w.columns])*width[1]
+    u.width <- unlist(r.peaks[, w.columns])*width[2]
+    new.bounds <- .update_bounds(unlist(l.peaks[, w.columns]), l.width,
+                                 unlist(u.peaks[, w.columns]), u.width, widen)
+    l.peaks[, w.columns] <- matrix(new.bounds$lower, ncol = n)
+    u.peaks[, w.columns] <- matrix(new.bounds$upper, ncol = n)
   }
 
   # Baseline -- both real and imaginary components treated in the same way

@@ -18,17 +18,17 @@ set_conservative_bounds(object, position = TRUE, height = TRUE,
 attached.}
 
 \item{position}{TRUE to prevent peaks from leaving the peak area and
-to keep initial positions to within 20% of the initial
-values. FALSE to disable.}
+to keep initial positions to within 20 percent of the 
+initial values. FALSE to disable.}
 
 \item{height}{TRUE to prevent negative peaks and limit peak height to
-50% of the maximum peak value. FALSE to disable.}
+50 percent of the maximum peak value. FALSE to disable.}
 
 \item{width}{TRUE to set a minimum peak width of 0.3 Hz and a maximum peak
 width of 3 Hz. FALSE to disable.}
 
-\item{baseline}{TRUE to prevent the baseline from exceeding 25% of maximum
-peak height in the original data. FALSE to disable.}
+\item{baseline}{TRUE to prevent the baseline from exceeding 25 percent of
+maximum peak height in the original data. FALSE to disable.}
 
 \item{phase}{TRUE to limit phase correction within 45 degrees. FALSE to
 disable.}
