@@ -1,258 +1,373 @@
-# Definition of a class structure for 1D peak scaffold data.
+# Definition of a class structure for 1D resonance data.
 
 
 
-#========================================================================>
-# Documentation entries
-#========================================================================>
+#==============================================================================>
+#  NMRResonance1D -- peak description 
+#==============================================================================>
 
 
 
-# Ensuring that NMRScaffold is loaded
-#' @include NMRScaffold.R
-NULL
-
-#' Inherited ellipses description
-#' @param ... Additional arguments passed to inheriting methods.
-#' @name methodEllipse
-NULL
-
-
-
-#========================================================================>
-#  NMRScaffold1D -- peak description 
-#========================================================================>
-
-
-
-# Defining a union between NMRData1D and NULL to use in slot
-NMRData1DorNULL <- setClassUnion('NMRData1DorNULL',
-                                 c('NMRData1D', 'NULL'))
-
-#------------------------------------------------------------------------
-#' A class representing a set of NMR peaks and their relationships. 
-#'
-#' TO DO.
-#'
-#' @slot peaks A data.frame describing a series of singlets, with one row
-#'             per peak. Specific peak parameters depend peak_type, but
-#'             all peaks are characterized by a position (in ppm), height
-#'             (in relative intensity units), and width (in ppm or Hz).
-#' @slot baseline A vector of baseline B-spline coefficients, corresponding 
-#'                to the B-spline knots.
-#' @slot baseline_difference A vector of baseline B-spline coefficients, 
-#'                           corresponding to the difference between real
-#'                           and imaginary baselines. Although the two
-#'                           are expected to be the same under most conditions,
-#'                           this equality may break down in some cases.
-#' @slot knots A vector of baseline B-spline knots, corresponding 
-#'             to the B-spline coefficients.
-#' @slot phase A vector of phase terms in radians.
-#' @slot parameters A single vector combining peak, baseline, baseline 
-#'                  difference, and phase terms. This slot is meant primarily 
-#'                  for internal use and should generally be avoided.
-#' @slot constraints A data.frame relating the position and width parameters
-#'                   of the peaks, effectively combining singlets into
-#'                   multiplets.
-#' @slot convolution TO DO.
-#' @slot normalized A logical variable indicating whether parameters have
-#'                  been normalized with respect to a set of data. Position
-#'                  and width are influenced by the chemical shift range of
-#'                  the data, while peak height, baseline, and baseline 
-#'                  difference are influenced by the maximum intensity of the 
-#'                  data.
-#' @slot peak_type The mathematical description of a singlet -- 
-#'                 one of either 'lorenz', 'gauss', 'pvoigt', or 'voigt'.
-#' @slot peak_units The units of peak width -- either 'ppm' or 'hz'. Although
-#'                  Hz units are easier to interpret, the peak fitting
-#'                  procedure uses ppm.
-#' @slot lower_bounds An NMRScaffold1D object that sets lower feasible bounds
-#'                    on all parameters during peak fitting. Can be set to NULL 
-#'                    to leave unbounded
-#' @slot upper_bounds An NMRScaffold1D object that sets upper feasible bounds
-#'                    on all parameters during peak fitting. Can be set to NULL 
-#'                    to leave unbounded
-#' @slot nmrdata An optional NMRData1D object that serves as a reference for
-#'               for normalization and peak_unit conversion. However, this 
-#'               can also be provided to the individual functions as needed.
-#'
-#' @name NMRScaffold1D-class
-#' @export
-NMRScaffold1D <- setClass("NMRScaffold1D",
-                          contains = "NMRScaffold",
-                          slots = c(baseline = 'numeric',
-                                    baseline_difference = 'numeric',
-                                    knots = 'numeric',
-                                    phase = 'numeric',
-                                    convolution = 'numeric',
-                                    nmrdata = 'NMRData1DorNULL'),
-                          prototype = prototype(normalized = FALSE,
-                                                peak_type = 'lorenz',
-                                                peak_units = 'hz',
-                                                bounds = list(lower = NULL,
-                                                              upper = NULL),
-                                                nmrdata = NULL))
-
-
-
-#========================================================================>
-# Validation methods
-#========================================================================>
-
-# Defining specific cases for baseline and phase
-
-#------------------------------------------------------------------------
-#' NMRScaffold1D validity test
+#------------------------------------------------------------------------------
+#' Definition of an NMR resonance.
 #' 
-#' Appends baseline, phase, and parameter checks on top of the checks
-#' handled by the NMRScaffold super class
-validNMRScaffold1D <- function(object) {
+#' Essentially, this class is used to define coupling relationships to group
+#' individual peaks into resonances.
+#' 
+#' @slot peaks A data.frame describing a series of singlets, with one row per
+#'             peak. All peaks are characterized by a position (in ppm), height
+#'             (in relative intensity units), width (in ppm or Hz), and
+#'             fraction.guass (in percent).
+#' @slot couplings A data.frame relating the position and height parameters of
+#'                 the peaks, effectively combining singlets into multiplets.
+#' @slot couplings.leeway A list specifying how tightly enforced the coupling
+#'                        constraints on peak positions, heights, and widths
+#'                        should be. E.g. position = 0 specifies that the j
+#'                        coupling constant is exact, whereas width = 0.1
+#'                        specifies that the widths of individual peaks may
+#'                        differ by +/- 10 percent.
+#' @slot bounds A list of lower and upper bounds on the peak parameters where
+#'              both bounds take the same shape as the peaks data.frame.
+#' 
+#' @name NMRResonance1D-class
+#' @export
+NMRResonance1D <- setClass("NMRResonance1D",
+  slots = c(
+    peaks = 'data.frame',
+    couplings = 'data.frame',
+    couplings.leeway = 'list',
+    bounds = 'list'
+  ),
+  prototype = prototype(
+    couplings = data.frame(),
+    couplings.leeway = list(position = 0, width = 0, height = 0),
+    bounds = list(lower = NULL, upper = NULL)
+  )
+)
+
+
+
+#==============================================================================>
+#  Validation methods
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' NMRResonance1D validity test
+#'
+validNMRResonance1D <- function(object) {
 
   peaks <- object@peaks
-  baseline <- object@baseline
-  baseline.diff <- object@baseline_difference
-  knots <- object@knots
-  phase <- object@phase 
-  parameters <- object@parameters
-  constraints <- object@constraints
+  couplings <- object@couplings
+  couplings.leeway <- object@couplings.leeway
   bounds <- object@bounds
 
   valid <- TRUE
   msg <- c()
 
+  #---------------------------------------
   # Checking peak column names
-  valid.columns <- .all_columns(object)
+  valid.columns <- c('id', 'peak', 'position', 
+                     'width', 'height', 'fraction.gauss')
+
   if (! identical(colnames(peaks), valid.columns) ) {
     valid <- FALSE
     new.msg <- sprintf('"peaks" must have the following columns: %s',
-                          paste(valid.columns, collapse = ', '))
-    msg <- c(msg, new.msg)
-  }
-    
-  # The parameter vector must be longer than the knot vector
-  if ( (length(baseline) > 0) && (length(baseline) <= length(knots)) ) {
-    valid <- FALSE
-    new.msg <- paste('"knots" vector must be shorter than "baseline" vector:',
-               'n.baseline = n.knots + baseline.degree + 1')
+                       paste(valid.columns, collapse = ', '))
     msg <- c(msg, new.msg)
   }
 
-  # Phase length
-  if ( (length(phase) > 0) && (length(phase) != 1) ) {
-    valid <- FALSE
-    new.msg <- '"phase", if it exists, must be of length 1.'
-    msg <- c(msg, new.msg)
+  #---------------------------------------
+  # Checking couplings
+  if ( nrow(couplings) > 0 ) {
+
+    valid.columns <- c('id.1', 'id.2', 'peak.1', 'peak.2', 
+                       'position.difference', 'height.ratio')
+    if (! identical(colnames(couplings), valid.columns) ) {
+      valid <- FALSE
+      new.msg <- sprintf('"couplings" must have the following columns: %s',
+                         paste(valid.columns, collapse = ', '))
+      msg <- c(msg, new.msg)
+    }
+
+    valid.values <- paste(peaks$id, peaks$peak)
+    logic1 <- all(paste(couplings$id.1, couplings$peak.1) %in% valid.values)
+    logic2 <- all(paste(couplings$id.2, couplings$peak.2) %in% valid.values)
+
+    if (! (logic1 & logic2) ) {
+      valid <- FALSE
+      new.msg <- '"couplings" ids and peaks must correspond to existing peaks.'
+      msg <- c(msg, new.msg)
+    }
   }
 
-  # Making sure that individual parameters are equivalent to combined vector
-  current.parameters <- .merge_parameters(object, FALSE)
-  if (! identical(parameters, current.parameters) ) {
-    valid <- FALSE
-    new.msg <- paste('The combined "parameters" slot does not match values', 
-                        'of the individual slots.')
-    msg <- c(msg, new.msg)
+  #---------------------------------------
+  # Checking that lower bounds match peaks
+  if (! is.null(bounds$lower) ) {
+
+    logic <- identical(colnames(bounds$lower), valid.columns)
+    if (! logic ) {
+      valid <- FALSE
+      new.msg <- sprintf('"bounds$lower" must have the following columns: %s',
+                         paste(valid.columns, collapse = ', '))
+      msg <- c(msg, new.msg)
+    }
+
+    logic1 <- identical(bounds$lower$id, peaks$id)
+    logic2 <- identical(bounds$lower$peak, peaks$peak)
+    if (! (logic! && logic2) ) {
+      valid <- FALSE
+      new.msg <- '"bounds$lower" id and peak columns must match "peaks"'
+      msg <- c(msg, new.msg)
+    }
   }
 
-  # Checking constraint columns
-  valid.columns <- c('id1', 'id2', 'peak1', 'peak2', 
-                     'difference', 'ratio')
+  #---------------------------------------
+  # Checking that upper bounds match peaks
+  if (! is.null(bounds$upper) ) {
 
-  if (! identical(colnames(constraints), valid.columns)) {
-    valid <- FALSE
-    new.msg <- sprintf('"constraints" must have the following columns: %s',
-                          paste(valid.columns, collapse = ', '))
-    msg <- c(msg, new.msg)
-  } 
+    logic <- identical(colnames(bounds$upper), valid.columns)
+    if (! logic ) {
+      valid <- FALSE
+      new.msg <- sprintf('"bounds$upper" must have the following columns: %s',
+                         paste(valid.columns, collapse = ', '))
+      msg <- c(msg, new.msg)
+    }
 
-  # Checking bounds
-  valid.bounds <- c('lower', 'upper')
-  if ( (length(bounds) > 0) && (any(!names(bounds) %in% valid.bounds)) ) {
-    valid <- FALSE
-    msg <- c(msg, '"bounds" can only have "lower" and "upper" elements.')
+    logic1 <- identical(bounds$upper$id, peaks$id)
+    logic2 <- identical(bounds$upper$peak, peaks$peak)
+    if (! (logic! && logic2) ) {
+      valid <- FALSE
+      new.msg <- '"bounds$upper" id and peak columns must match "peaks"'
+      msg <- c(msg, new.msg)
+    }
   }
 
-  lower <- .is_conformant(object, bounds$lower)
-  upper <- .is_conformant(object, bounds$upper)
-
-  string <- c()
-  if (! lower ) string <- c(string, 'lower')
-  if (! upper ) string <- c(string, 'upper')
-  string <- paste(string, collapse = ' and ')
-
-  if (string != '' ) {
-    valid <- FALSE
-    new.msg <- sprintf('The shape of %s bounds does not conform to parameters', 
-                       new.msg)
-    msg <- c(msg, string)
-  }
-
+  #---------------------------------------
+  # Output
   if (valid) TRUE
   else msg
 }
 
 # Add the extended validity testing
-setValidity("NMRScaffold1D", validNMRScaffold1D)
+setValidity("NMRResonance1D", validNMRScaffold1D)
 
 
 
-#========================================================================>
-# Constructor for initialization
-#========================================================================>
+#==============================================================================>
+#  Helper functions for constructor
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' Parse peak coupling strings
+#' 
+#' Converts a coupling specification of the form '3.0 d 1.0' into the chemical
+#' shift, number of peaks involved and the coupling between them. Currently,
+#' the supported codes include s, d, t, q, pentet, sextet, septet, octet, and
+#' nonet or any combination of the above. Essentially, the function splits the
+#' coupling into a position (number), coupling description (text), and coupling
+#' constant (number), parsing the latter two to extract the required codes and
+#' numbers. The actual parsing is quite flexible so "1.0 dtpnt 1.5/2/1" will be
+#' parsed the same as "1.0 d t pentet 1.5 2 1".
+#' 
+#' @param coupling.string A character vector with elements of the form '3.0 d
+#'                        1.0' or '2 dt 1.0 1.2'
+#' 
+#' @return A list of three vectors -- chemical.shift, peak numbers, and coupling
+#'         constants respectively.
+#' 
+#' @export
+parse_peaks_1d <- function(coupling.string) {
+
+  # Saving original string for later
+  original.string <- coupling.string
+
+  # Ensure lowercase
+  coupling.string <- tolower(coupling.string)
+
+  # Remove any and all brackets
+  coupling.string <- str_replace_all(coupling.string, '[(){}]|\\[\\]', ' ')
+
+  # Replace all possible separators with a single whitespace
+  coupling.string <- str_replace_all(coupling.string, '[ ,;#$%_/]+', ' ')
+
+  # Remove whitespace at beginning or end
+  coupling.string <- str_trim(coupling.string, 'both')
+
+  # First split directly after first number
+  split <- str_split(coupling.string, '(?<=^[0-9.]{1,20})(?![0-9.])', 2)[[1]]
+  direct.shift <- split[1]
+  coupling.string <- str_trim(split[2], 'both')
+
+  # Then split directly before first remaining number
+  split <- str_split(coupling.string, '(?<![0-9.])(?=[0-9])', 2)[[1]]
+  codes <- str_trim(split[1], 'both')
+  constants <- split[2]
+
+  #---------------------------------------
+  # Parsing codes
+
+  # Saving original code text for later
+  original <- codes
+
+  # Try every iteration of long names down to three characters
+  patterns <- c('pent', 'pnt', 'pentet', 'qui', 'qnt', 'quint', 'quintet',
+                'sxt', 'sext', 'sextet', 'spt', 'sept', 'septet', 'hpt',
+                'hept', 'heptet', 'oct', 'octet', 'non', 'nonet')
+  numbers <- rep(5:9, c(7, 3, 6, 2, 2))
+
+  # Arrange in order of longest to shortest
+  index <- order(nchar(patterns), decreasing = TRUE)
+  patterns <- patterns[index]
+  numbers <- numbers[index]
+
+  replacement <- as.character(numbers)
+  names(replacement) <- patterns
+
+  codes <- str_replace_all(codes, replacement)
+  print(codes)
+
+  # Then parsing single character names
+  replacement <- as.character(1:4)
+  names(replacement) <- c('s', 'd', 't', 'q')
+
+  codes <- str_replace_all(codes, replacement)
+  print(codes)
+
+  # Finally, remove any spaces and split by single numbers
+  codes <- str_replace_all(codes, '\\s', '')
+  codes <- suppressWarnings(as.numeric(str_split(codes, '')[[1]]))
+
+  msg <- 'The coupling definition "%s" could not be parsed.'
+  if ( any( is.na(codes) ) ) stop(sprintf(msg, original))
+
+  # If there is only one singlet, no need to parse constants
+  if ( identical(codes, 1) ) {
+    return(list(direct.shift = direct.shift, codes = codes, constants = NA))
+  }
+
+  #---------------------------------------
+  # Parsing constants
+
+  # Saving original constants text for later
+  original <- constants
+
+  # Split by single spaces (previous conversions should have removed issues)
+  constants <- suppressWarnings(as.numeric(str_split(constants, ' ')[[1]]))
+
+  msg <- 'The coupling constant definition "%s" could not be parsed.'
+  if ( any( is.na(constants) ) ) stop(sprintf(msg, original))
+
+  # Making sure that the number of codes matches constants
+  msg <- '"%s" was not parsed with an equal number of couplings and constants.'
+  logic <- sum(codes != 1) != sum(! is.na(constants))
+  if ( logic ) stop(sprintf(msg, original.string))
+
+  # Filling in NA values in case there are singlets
+  for (i in which(codes == 1)) {
+    if (! is.na(constants[i]) ) {
+      constants <- append(constants, NA, i-1)
+    }
+  }
+
+  list(direct.shift = direct.shift, numbers = codes, constants = constants)
+}
 
 
 
 #------------------------------------------------------------------------
-#' Generate an NMRScaffold1D object based on simplified peak list
-#'
-#' Generates an NMRScaffold1D object by converting multiplet definitions into
-#' a set of singlets related by constraints on their position and area.
-#  An NMRData1D object is required to come up with rough estimates for peak 
-#' height and convert coupling constants from Hz to ppm. If no data is 
-#' provided, peak heights are assumed to be 0. This is a bad initial 
-#' guess and is unlikely to result in a good fit.
-#'
-#' Multiplets are specified in the from of "3 d 1.2", which indicates
-#' a doublet at 3 ppm, with a coupling constant of 1.2 Hz. Supported  
-#' multiplet codes include s, d, t, q, quint, sext, sept, oct, dd, dt, 
-#' td, and tt. The latter 4 expect two coupling values. The exact 
-#' syntax of the specification is quite flexible, as the function  
-#' removes all brackets and most punctuation and converts common spacers 
-#' like - and _ into whitespace. Satellite coupling constants (in Hz) can be
-#' added using "j" in the specification, so "3 s j 10" would indicate
-#' a singlet at 3 ppm and 1 pair of satellites with a coupling constant of
-#' 10 Hz. It's also possible to offset the center of the satellite
-#' doublet from the center of the main isotopic peak using a colon. In the
-#' specification of "3 s j 10:0.01", the center of the satellite doublet is
-#' offset 0.01 ppm upfield. 
-#'
-#' @param peak.list A vector or list of character strings specifying
-#'                  multiplets of the form "3 d 1.2". See details section.
-#' @param peak.type One of lorenz, gauss, pvoigt, or voigt.
-#' @param nmrdata An NMRData1D object.
-#' @param peak.width Initial estimate of peak width (in Hz)
-#' @param baseline.degree Degree of B-spline polynomials to use for baseline.
-#'                        As the degree can be 0, use NULL to remove
-#'                        baseline entirely (default value).
-#' @param n.knots The number of equally spaced interior knots used for 
-#'                B-spline baseline. The knots can be changed after the
-#'                scaffold in initialized.
-#' @param include.difference Include a baseline difference term to account
-#'                           for slight difference between real and imaginary
-#'                           components. By default, this difference is
-#'                           initialized to be the same as the baseline
-#'                           term. This can be changed later.
-#' @param include.phase Include a phasing term in the fit.
-#' @param store FALSE to not store the nmrdata object. Although storing
-#'              an nmrdata object is likely to be more convenient,
-#'              it may result in unnecessary data copies.
-#'
-#' @return An NMRScaffold1D object.
-#'
+#' Split peaks data.frame according to specified coupling.
+#' 
+#' @param peaks A peaks data.frame from NMRResonance1D object.
+#' @param number The number of output peaks per input peak.
+#' @param constant The coupling constant of the split.
+#' 
+#' @return A modified data.frame suitable for NMRResonance1D object.
+#' 
 #' @export
-nmrscaffold_1d <- function(peak.list, nmrdata, peak.type = 'lorenz', 
-                           peak.width = 1, baseline.degree = 3, n.knots = 3,
-                           include.difference = TRUE, include.phase = TRUE, 
-                           store = TRUE) {
+split_peaks_1d <- function(peaks, number, constant) {
+
+  # Calculating offsets
+  offsets <- constant*(number - 1) * seq(-0.5, 0.5, length = number)
+
+  # Calculating height ratios based on pascal's triangle
+  ratios <- choose(number - 1, 0:(number - 1))
+  heights <- ratios/sum(ratios)
+
+  # Replicating heights and offsets to match data frame
+  n <- nrow(peaks)
+  offsets <- rep(offsets, n)
+  heights <- rep(heights, n)
+
+  # Replicating each row to match number of output peaks
+  peaks <- peaks[rep(1:n, each = number), ]
+  peaks$height <- peaks$height*heights
+  peaks$position <- peaks$position + offsets
+
+  # Resetting peak number and row names
+  peaks <- peaks[order(peaks$position), ]
+  peaks$peak <- 1:nrow(peaks)
+  rownames(peaks) <- peaks$peak
+
+  peaks
+}
+
+
+
+#==============================================================================>
+#  Constructor for initialization
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' Generate an NMRResonance1D object based on simplified peak list
+#'
+#' Generates an NMRResonance1D object by converting multiplet definitions into
+#' a set of singlets related by constraints on their position and area.
+#  An NMRResonance1D object is required to come up with rough estimates for
+#' peak height. If no data is provided, peak heights are assumed to be 1
+#' intensity unit. This is a bad initial guess and is unlikely to result in a
+#' good fit.
+#' 
+#' @param peaks A numeric vector of singlet chemical shifts or a character
+#'              string specifying multiplets of the form "3 d 1.2". See
+#'              ?parse_peaks_1d for more information.
+#' @param nmrdata An NMRData1D object.
+#' @param id A string specifying resonance name. If left empty, a name is
+#'           automatically generated from the peaks argument.
+#' @param peak.width Initial estimate of peak width (in Hz). For Voigt
+#'                   lineshapes, this value is taken as the Lorentzian
+#'                   component, with the Gaussian component calculated from
+#'                   peak.width*frac.guass/(1-frac.gauss).
+#' @param fraction.gauss Fraction of overall peak width that corresponds to a
+#'                       Gaussian lineshape. A value of 0 corresponds to a
+#'                       Lorentz peak whereas a value of 1 corresponds to a
+#'                       Gaussian peak. Values in between 0 and 1 are modelled
+#'                       as a Voigt lineshape but the specific value of
+#'                       frac.gauss does not have a physical interpretation.
+#' @param position.leeway A fraction specifying how tightly enforced the
+#'                        coupling constraints on peak positions, should be.
+#'                        E.g. coupling.leeway = 0 specifies that the j coupling
+#'                        constant is exact, whereas couping.leeway = 0.1
+#'                        specifies that the coupling constant may differ by +/-
+#'                        10 percent.
+#' @param width.leeway Similar to position.leeway but for peak widths.
+#'                     Determines how strictly equal peak widths for all coupled
+#'                     peaks are enforced.
+#' @param height.leeway Similar to position.leeway but for peak heights.
+#'                      Determines how strictly the coupling height ratios are
+#'                      enforced.
+#' 
+#' @return An NMRScaffold1D object.
+#' 
+#' @export
+nmrresonance_1d <- function(peaks, nmrdata, id = NULL, peak.width = 1, 
+                            fraction.gauss = 0, position.leeway = 0,
+                            height.leeway = 0, width.leeway = 0) {
 
   # Checking nmrdata
   if ( class(nmrdata) == 'NMRData1D' ) {
@@ -262,200 +377,47 @@ nmrscaffold_1d <- function(peak.list, nmrdata, peak.type = 'lorenz',
     stop(msg)
   }
 
-  # Forcing include.difference to FALSE if there is no baseline
-  if ( is.null(baseline.degree) && ( include.difference ) ) {
-    msg <- paste('Setting "include.difference" to TRUE without a baseline',
-                 'can not be processed, ignoring')
-    warning(msg, call. = FALSE)
-    include.difference <- FALSE
-  }
+  #---------------------------------------
+  # Building peak list
 
-  # Parsing peak.list
-  parsed <- parse_coupling(peak.list)
-  ids <- parsed$ids
-  chemical.shift <- parsed$chemical.shift
-  peaks <- parsed$peaks
-  coupling <- parsed$coupling
+  # If peaks is a character, parse coupling information
+  if ( is.character(peaks) ) {
+    coupling <- parse_peaks_1d(peaks)
+    add.constraints <- TRUE
 
-  # Converting Hertz coupling into ppm
-  sfo1 <- nmrdata@acqus[['sfo1']]
-  coupling <- lapply(coupling, function(x) x/sfo1)
+    # Initializing singlet at chemical shift
+    if ( is.null(id) ) id <- peaks
+    peaks <- data.frame(id = id, peak = 1, position = coupling$direct.shift,
+                        width = peak.width, height = 1, 
+                        fraction.gauss = fraction.gauss)
 
-  # Initializing output
-  peaks.list = list()
-  constraints.list = list()
-
-  # Parsing singlets (they have no constraints)
-  is.s <- unlist(lapply(coupling, function(x) all(is.na(x))) )
-  for (i in which(is.s)) {
-    peaks.frame <- data.frame(id = ids[i], peak = 1, 
-                              position = chemical.shift[i])
-    peaks.list[[as.character(ids[i])]] <- peaks.frame
-  }
-
-  # Parsing multiplets
-  for (i in which(!is.s)) {
-    singlets <- split_coupling(peaks[[i]], coupling[[i]])
-    singlets[, 1] <- singlets[, 1] + chemical.shift[i]
-    n <- nrow(singlets)
-    
-    # First the peaks 
-    peaks.frame <- data.frame(id = ids[i], peak = 1:n, 
-                              position = singlets[, 1])
-    peaks.list[[as.character(ids[i])]] <- peaks.frame
-
-    # Then the constraints
-    differences <- singlets[2:n, 1] - singlets[1:(n-1), 1]
-    ratios = singlets[2:n, 2]/singlets[1:(n-1), 2]
-    
-    constraints.frame <- data.frame(id1 = ids[i], id2 = ids[i], 
-                                    peak1 = 1:(n-1), peak2 = 2:n,
-                                    difference = differences, ratio = ratios)
-
-    constraints.list[[as.character(ids[i])]] <- constraints.frame
-  }
-
-  # Stitching together lists of data.frames
-  peaks <- bind_rows(peaks.list)
-  constraints <- bind_rows(constraints.list)
-
-  n.peaks <- nrow(peaks)
-  n.constraints <- nrow(constraints)
-
-  # Initializing constraint and peak logic
-  satellite.peaks <- list(rep(FALSE, n.peaks))
-  satellite.constraints <- list(rep(FALSE, n.constraints))
-  coupling.constraints <- list(rep(TRUE, n.constraints))
-
-  # Parsing satellite data
-  sat.ids <- parsed$sat.ids
-  sat.offsets <- parsed$sat.offsets
-  sat.numbers <- parsed$sat.numbers
-  sat.coupling <- parsed$sat.coupling
-
-  # Looping through sat.ids if there are any
-  for (id in sat.ids) {
-
-    id.factor <- factor(id, levels = levels(sat.ids))
-
-    np <- nrow(peaks.list[[id]])
-    last.peak <- np
-
-    # Adding a doublet per peak per satellite
-    for (j in 1:sat.numbers[[id]]) {
-      coupling <- sat.coupling[[id]][j]
-      offsets <- sat.offsets[[id]][j]
-
-      left.position <- peaks.list[[id]]$position - 
-                       coupling/2/sfo1 -
-                       offsets
-      right.position <- peaks.list[[id]]$position + 
-                        coupling/2/sfo1 -
-                        offsets
-
-      # Interleaving and adding peak numbers
-      peak.numbers <- seq(last.peak + 1, 2*np + last.peak)
-      peak.positions <- c(rbind(left.position, right.position))
-
-      peaks.frame <- data.frame(id = id.factor,
-                                peak = peak.numbers,
-                                position = peak.positions)
-
-      peaks.list[[paste(id, 'j', j, sep = '-')]] <- peaks.frame
-      last.peak <- last.peak + 2*np
-
-      # Generating coupling constraints between satellites
-      constraints.frame1 <- data.frame(id1 = id.factor, id2 = id.factor,
-                                       peak1 = peak.numbers[seq(1, 2*np, 2)],
-                                       peak2 = peak.numbers[seq(2, 2*np, 2)],
-                                       difference = coupling/sfo1,
-                                       ratio = 1)
-
-      # Generating coupling constraints between satellites and main peaks
-      constraints.frame2 <- data.frame(id1 = id.factor, id2 = id.factor,
-                                       peak1 = peak.numbers[seq(1, 2*np, 2)],
-                                       peak2 = 1:np,
-                                       difference = coupling/2/sfo1 - 
-                                                    offsets,
-                                       ratio = 1)
-
-      constraints.frame <- rbind(constraints.frame1, constraints.frame2)
-      constraints.list[[paste(id, 'j', j, sep = '-')]] <- constraints.frame    
-
-      # Tacking on constraint and peak logic
-      satellite.peaks <- c(satellite.peaks, rep(TRUE, 2*np))
-      satellite.constraints <- c(satellite.constraints, rep(TRUE, 2*np))
-      coupling.logic <- rep(c(TRUE, FALSE), each = np)
-      coupling.constraints <- c(coupling.constraints, coupling.logic)
+    # Looping through the coupling to split the specified peaks
+    for ( i in 1:length(coupling$number) ) {
+      peaks <- split_peaks_1d(peaks, coupling$number[i], coupling.constant[i])
     }
   }
-
-  # Recombining following the addition of satellites
-  peaks <- bind_rows(peaks.list)
-  constraints <- bind_rows(constraints.list)
-
-  satellite.peaks <- unlist(satellite.peaks) 
-  satellite.constraints <- unlist(satellite.constraints)
-  coupling.constraints <- unlist(coupling.constraints)
-
-  # If there are no constraints, proper columns must still be enforced
-  if ( nrow(constraints) == 0 ) {
-    constraints <- data.frame(id1 = character(0), id2 = character(0),
-                              peak1 = character(0), peak2 = character(0),
-                              difference = numeric(0), ratio = numeric(0))
+  # Otherwise, build peaks directly from singlets
+  else {
+    add.constraints <- FALSE
+    if ( is.null(id) ) id <- paste('m', min(peaks), '..', max(peaks))
+    peaks <- data.frame(id = id, peak = 1:length(peaks), position = peaks,
+                        width = peak.width, height = 1, 
+                        fraction.gauss = fraction.gauss)
   }
 
   # Generate rough estimates for height
-  d <- nmrdata@processed
-  logic <- which_approx(d$direct.shift, peaks$position)
-  height <- Re(d$intensity)[logic]
-  height <- ifelse(height < 0, 0.1*max(Re(d$intensity)), height)
+  #d <- nmrdata@processed
+  #logic <- which_approx(d$direct.shift, peaks$position)
+  #height <- Re(d$intensity)[logic]
+  #height <- ifelse(height < 0, 0.1*max(Re(d$intensity)), height)
 
-  # Adding on estimates for height and width
-  peaks$height <- height
-  peaks$width <- peak.width
+  coupling <- data.frame()
+  coupling.leeway = list(position = position.leeway, width = width.leeway,
+                         height = height.leeway)
 
-  # Calculating scaling factors for knots
-  x.offset <- min(d$direct.shift)
-  x.scale <- max(d$direct.shift) - x.offset
+  new('NMRResonance1D', peaks = peaks, coupling = coupling, 
+                        coupling.leeway = coupling.leeway)
 
-  # Generating the scaffold object for lorenz peaks
-  if ( n.knots > 0 ) {
-    knots <- seq(0, 1, length.out = (n.knots + 2))[-c(1, n.knots+2)]
-    knots <- knots*x.scale + x.offset
-  } else {
-    knots <- numeric(0)
-  }
-
-  if ( is.null(baseline.degree) ) { 
-    baseline <- numeric(0)
-  } else {
-    baseline <- rep(0, n.knots + baseline.degree + 1)
-  }
-
-  if ( include.difference ) baseline.diff <- baseline
-  else baseline.diff <- numeric(0)
-
-  if ( include.phase ) phase <- 0
-  else phase <- numeric(0)
-
-  # Combining with a small hack to use the right version of .gen_parameters)
-  object <- new('NMRScaffold1D')
-  parameters <- .gen_parameters(object, peaks, baseline, baseline.diff, phase)
-
-  # Dropping data from storage if desired
-  if (! store ) nmrdata <- NULL
-
-  scaffold <- new('NMRScaffold1D', peaks = peaks,
-                  constraints = constraints, baseline = baseline,
-                  baseline_difference = baseline.diff, knots = knots, 
-                  phase = phase, nmrdata = nmrdata, parameters = parameters, 
-                  .sat_peaks = satellite.peaks,
-                  .sat_constraints = satellite.constraints,
-                  .j_constraints = coupling.constraints)
-
-  # Converting scaffold based on desired peak type
-  set_peak_type(scaffold, peak.type)
 }
 
 
@@ -1588,7 +1550,7 @@ setMethod("set_absolute_bounds", "NMRScaffold1D",
   if (! is.null(phase) ) {
     .check_bounds(phase)
     new.bounds <- .update_bounds(l.phase, phase[1],
-                                 u.phase, phase[2], widen)
+                                u.phase, phase[2], widen)
     l.phase <- new.bounds$lower
     u.phase <- new.bounds$upper
   }
@@ -1678,7 +1640,7 @@ setMethod("set_relative_bounds", "NMRScaffold1D",
   if (! is.null(height) ) {
     .check_bounds(height)
     # If there are multiple height columns, flatten them
-    n <- length(h.columns)
+    n <- length(w.columns)
     l.height <- unlist(r.peaks[, h.columns])*height[1]
     u.height <- unlist(r.peaks[, h.columns])*height[2]
     new.bounds <- .update_bounds(unlist(l.peaks[, h.columns]), l.height,
