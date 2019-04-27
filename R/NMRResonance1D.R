@@ -116,7 +116,7 @@ validNMRResonance1D <- function(object) {
 
     logic1 <- identical(bounds$lower$id, peaks$id)
     logic2 <- identical(bounds$lower$peak, peaks$peak)
-    if (! (logic! && logic2) ) {
+    if (! (logic1 && logic2) ) {
       valid <- FALSE
       new.msg <- '"bounds$lower" id and peak columns must match "peaks"'
       msg <- c(msg, new.msg)
@@ -137,7 +137,7 @@ validNMRResonance1D <- function(object) {
 
     logic1 <- identical(bounds$upper$id, peaks$id)
     logic2 <- identical(bounds$upper$peak, peaks$peak)
-    if (! (logic! && logic2) ) {
+    if (! (logic1 && logic2) ) {
       valid <- FALSE
       new.msg <- '"bounds$upper" id and peak columns must match "peaks"'
       msg <- c(msg, new.msg)
@@ -151,7 +151,7 @@ validNMRResonance1D <- function(object) {
 }
 
 # Add the extended validity testing
-setValidity("NMRResonance1D", validNMRScaffold1D)
+setValidity("NMRResonance1D", validNMRResonance1D)
 
 
 
@@ -200,6 +200,7 @@ parse_peaks_1d <- function(coupling.string) {
   # First split directly after first number
   split <- str_split(coupling.string, '(?<=^[0-9.]{1,20})(?![0-9.])', 2)[[1]]
   direct.shift <- split[1]
+  direct.shift <- as.numeric(direct.shift)
   coupling.string <- str_trim(split[2], 'both')
 
   # Then split directly before first remaining number
@@ -228,14 +229,12 @@ parse_peaks_1d <- function(coupling.string) {
   names(replacement) <- patterns
 
   codes <- str_replace_all(codes, replacement)
-  print(codes)
 
   # Then parsing single character names
   replacement <- as.character(1:4)
   names(replacement) <- c('s', 'd', 't', 'q')
 
   codes <- str_replace_all(codes, replacement)
-  print(codes)
 
   # Finally, remove any spaces and split by single numbers
   codes <- str_replace_all(codes, '\\s', '')
@@ -246,7 +245,7 @@ parse_peaks_1d <- function(coupling.string) {
 
   # If there is only one singlet, no need to parse constants
   if ( identical(codes, 1) ) {
-    return(list(direct.shift = direct.shift, codes = codes, constants = NA))
+    return(list(direct.shift = direct.shift, numbers = codes, constants = NA))
   }
 
   #---------------------------------------
@@ -290,6 +289,9 @@ parse_peaks_1d <- function(coupling.string) {
 #' @export
 split_peaks_1d <- function(peaks, number, constant) {
 
+  # Singlets do not require splitting
+  if ( number == 1 ) return(peaks)
+
   # Calculating offsets
   offsets <- constant*(number - 1) * seq(-0.5, 0.5, length = number)
 
@@ -325,18 +327,15 @@ split_peaks_1d <- function(peaks, number, constant) {
 
 #------------------------------------------------------------------------------
 #' Generate an NMRResonance1D object based on simplified peak list
-#'
+#' 
 #' Generates an NMRResonance1D object by converting multiplet definitions into
-#' a set of singlets related by constraints on their position and area.
-#  An NMRResonance1D object is required to come up with rough estimates for
-#' peak height. If no data is provided, peak heights are assumed to be 1
-#' intensity unit. This is a bad initial guess and is unlikely to result in a
-#' good fit.
+#' a set of singlets related by constraints on their position and area. Note
+#' that peak height parameters are arbitrary at this point. Initial guesses for
+#' peak height can be generated during the fit process or overriden manually.
 #' 
 #' @param peaks A numeric vector of singlet chemical shifts or a character
 #'              string specifying multiplets of the form "3 d 1.2". See
 #'              ?parse_peaks_1d for more information.
-#' @param nmrdata An NMRData1D object.
 #' @param id A string specifying resonance name. If left empty, a name is
 #'           automatically generated from the peaks argument.
 #' @param peak.width Initial estimate of peak width (in Hz). For Voigt
@@ -365,17 +364,9 @@ split_peaks_1d <- function(peaks, number, constant) {
 #' @return An NMRScaffold1D object.
 #' 
 #' @export
-nmrresonance_1d <- function(peaks, nmrdata, id = NULL, peak.width = 1, 
+nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1, 
                             fraction.gauss = 0, position.leeway = 0,
                             height.leeway = 0, width.leeway = 0) {
-
-  # Checking nmrdata
-  if ( class(nmrdata) == 'NMRData1D' ) {
-    validObject(nmrdata)
-  } else {
-    msg <- '"nmrdata" must be a valid NMRData1D object.'
-    stop(msg)
-  }
 
   #---------------------------------------
   # Building peak list
@@ -393,13 +384,15 @@ nmrresonance_1d <- function(peaks, nmrdata, id = NULL, peak.width = 1,
 
     # Looping through the coupling to split the specified peaks
     for ( i in 1:length(coupling$number) ) {
-      peaks <- split_peaks_1d(peaks, coupling$number[i], coupling.constant[i])
+      peaks <- split_peaks_1d(peaks, coupling$number[i], coupling$constant[i])
     }
   }
   # Otherwise, build peaks directly from singlets
   else {
     add.constraints <- FALSE
-    if ( is.null(id) ) id <- paste('m', min(peaks), '..', max(peaks))
+    middle <- (max(peaks) + min(peaks))/2 
+    range <- paste(min(peaks), '..', max(peaks), sep = '')
+    if ( is.null(id) ) id <- paste(middle, 'm', range)
     peaks <- data.frame(id = id, peak = 1:length(peaks), position = peaks,
                         width = peak.width, height = 1, 
                         fraction.gauss = fraction.gauss)
@@ -411,12 +404,12 @@ nmrresonance_1d <- function(peaks, nmrdata, id = NULL, peak.width = 1,
   #height <- Re(d$intensity)[logic]
   #height <- ifelse(height < 0, 0.1*max(Re(d$intensity)), height)
 
-  coupling <- data.frame()
-  coupling.leeway = list(position = position.leeway, width = width.leeway,
-                         height = height.leeway)
+  couplings <- data.frame()
+  couplings.leeway = list(position = position.leeway, width = width.leeway,
+                          height = height.leeway)
 
-  new('NMRResonance1D', peaks = peaks, coupling = coupling, 
-                        coupling.leeway = coupling.leeway)
+  new('NMRResonance1D', peaks = peaks, couplings = couplings, 
+                        couplings.leeway = couplings.leeway)
 
 }
 

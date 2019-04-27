@@ -24,6 +24,8 @@ Collate:
     'NMRScaffold.R'
     'NMRScaffold1D.R'
     'NMRFit1D.R'
+    'NMRResonance.R'
+    'NMRResonance1D.R'
     'bruker.R'
     'data.R'
     'fitting_1d.R'
