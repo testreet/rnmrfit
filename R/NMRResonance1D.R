@@ -319,6 +319,56 @@ split_peaks_1d <- function(peaks, number, constant) {
 
 
 
+#------------------------------------------------------------------------
+#' Enforce coupling relations between peaks.
+#' 
+#' Adds a set of constraints between specified peaks that fixes the differences
+#' between peak positions and the ratios between peak widths/heights to
+#' whatever the current values are. These constraints can be relaxed by setting
+#' leeway parameters that convert hard equality constraints to soft inequality
+#' constraints around a fraction of the fixed values.
+#' 
+#' @param nmrresonance An NMRResonance1D object to be modified.
+#' @param peaks Vector of peak numbers to enforce coupling. The default is to
+#'              select all peaks.
+#' 
+#' @return An NMRResonance1D object with a new set of coupling constraints.
+#' 
+#' @export
+enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
+
+  # Checking validity
+  if ( class(nmrresonance) != 'NMRResonance1D' ) {
+    msg <- '"nmrresonance" must be a valid NMRResonance1D object.'
+    stop(msg)
+  }
+  else {
+    validObject(nmrresonance)
+  }
+
+  # Filtering peaks
+  d <- nmrresonance@peaks
+  if ( is.null(peaks) ) peaks <- d$peak
+  d <- d[d$peak %in% peaks, ]
+
+  # Calculating
+  index.1 <- 1:(nrow(d) - 1)
+  index.2 <- 2:nrow(d)
+
+  differences <- d$position[index.2] - d$position[index.1]
+  ratios <- d$height[index.2]/d$height[index.1]
+  couplings <- data.frame(id.1 = d$id[index.1], id.2 = d$id[index.2], 
+                          peak.1 = d$peak[index.1], peak.2 = d$peak[index.2],
+                          position.differences = differences,
+                          height.ratios = ratios)
+
+  nmrresonance@couplings <- rbind(nmrresonance@couplings, couplings)
+  nmrresonance
+}
+
+
+
+
 #==============================================================================>
 #  Constructor for initialization
 #==============================================================================>
@@ -361,7 +411,7 @@ split_peaks_1d <- function(peaks, number, constant) {
 #'                      Determines how strictly the coupling height ratios are
 #'                      enforced.
 #' 
-#' @return An NMRScaffold1D object.
+#' @return An NMRResonance1D object.
 #' 
 #' @export
 nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1, 
@@ -370,6 +420,9 @@ nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1,
 
   #---------------------------------------
   # Building peak list
+
+  # Couplings are not added in every case
+  add.couplings <- FALSE
 
   # If peaks is a character, parse coupling information
   if ( is.character(peaks) ) {
@@ -386,6 +439,9 @@ nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1,
     for ( i in 1:length(coupling$number) ) {
       peaks <- split_peaks_1d(peaks, coupling$number[i], coupling$constant[i])
     }
+
+    # Set flag to add couplings later
+    add.couplings <- TRUE
   }
   # Otherwise, build peaks directly from singlets
   else {
@@ -398,18 +454,20 @@ nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1,
                         fraction.gauss = fraction.gauss)
   }
 
-  # Generate rough estimates for height
-  #d <- nmrdata@processed
-  #logic <- which_approx(d$direct.shift, peaks$position)
-  #height <- Re(d$intensity)[logic]
-  #height <- ifelse(height < 0, 0.1*max(Re(d$intensity)), height)
+  #---------------------------------------
+  # Adding coupling definitions
 
+  # Starting with blanks first
   couplings <- data.frame()
   couplings.leeway = list(position = position.leeway, width = width.leeway,
                           height = height.leeway)
 
-  new('NMRResonance1D', peaks = peaks, couplings = couplings, 
-                        couplings.leeway = couplings.leeway)
+  nmrresonance = new('NMRResonance1D', peaks = peaks, couplings = couplings, 
+                                       couplings.leeway = couplings.leeway)
+
+  # And then updating if necessary
+  if ( add.couplings ) enforce_couplings_1d(nmrresonance)
+  else nmrresonance
 
 }
 

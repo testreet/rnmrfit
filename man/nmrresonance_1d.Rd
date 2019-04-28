@@ -4,16 +4,13 @@
 \alias{nmrresonance_1d}
 \title{Generate an NMRResonance1D object based on simplified peak list}
 \usage{
-nmrresonance_1d(peaks, nmrdata = NULL, id = NULL, peak.width = 1,
-  fraction.gauss = 0, position.leeway = 0, height.leeway = 0,
-  width.leeway = 0)
+nmrresonance_1d(peaks, id = NULL, peak.width = 1, fraction.gauss = 0,
+  position.leeway = 0, height.leeway = 0, width.leeway = 0)
 }
 \arguments{
 \item{peaks}{A numeric vector of singlet chemical shifts or a character
 string specifying multiplets of the form "3 d 1.2". See
 ?parse_peaks_1d for more information.}
-
-\item{nmrdata}{An NMRData1D object.}
 
 \item{id}{A string specifying resonance name. If left empty, a name is
 automatically generated from the peaks argument.}
@@ -46,12 +43,11 @@ Determines how strictly equal peak widths for all coupled
 peaks are enforced.}
 }
 \value{
-An NMRScaffold1D object.
+An NMRResonance1D object.
 }
 \description{
 Generates an NMRResonance1D object by converting multiplet definitions into
-a set of singlets related by constraints on their position and area.
-peak height. If no data is provided, peak heights are assumed to be 1
-intensity unit. This is a bad initial guess and is unlikely to result in a
-good fit.
+a set of singlets related by constraints on their position and area. Note
+that peak height parameters are arbitrary at this point. Initial guesses for
+peak height can be generated during the fit process or overriden manually.
 }
