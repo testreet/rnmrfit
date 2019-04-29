@@ -25,6 +25,6 @@ convolution is included in the fit.}
 An NMRData1D object with filtered processed data.
 }
 \description{
-Filters processed data to include only that which is contained between
-a set of lower and upper bounds on chemical shift.
+Filters processed data to include only that which is contained between a set
+of lower and upper bounds on chemical shift.
 }

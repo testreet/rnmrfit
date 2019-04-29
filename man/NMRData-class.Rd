@@ -13,8 +13,10 @@ See NMRData1D or NMRData2D.
 \describe{
 \item{\code{processed}}{A data.frame containing chemical shift and intensity data.}
 
-\item{\code{acqus}}{A list of acqus parameters.}
+\item{\code{parameters}}{A list of generic parameters.}
 
-\item{\code{procs}}{A list of procs parameters.}
+\item{\code{acqus}}{A list of parameters specific to acqus file.}
+
+\item{\code{procs}}{A list of parameters sepcific to procs file.}
 }}
 

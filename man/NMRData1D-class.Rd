@@ -20,14 +20,14 @@ intensity as columns.}
 
 \item{\code{procs}}{A list of procs parameters.}
 
-\item{\code{product}}{A vector representation of an apodization function that was 
-used to generate the intensity data (in this context, 
-zero-filling is considered to be the equivalent of 
-apodization by a step function). To facilitate convolution, 
-the length of this vector is set to 2*n - 1 where n is the 
-number of spectrum points.}
+\item{\code{product}}{A vector representation of an apodization function that was
+used to generate the intensity data (in this context, zero-
+filling is considered to be the equivalent of apodization by a
+step function). To facilitate convolution, the length of this
+vector is set to 2*n - 1 where n is the number of spectrum
+points.}
 
-\item{\code{convolution}}{The Fourier transform of the product slot, suitable
-for convolution with the spectrum intensity data.}
+\item{\code{convolution}}{The Fourier transform of the product slot, suitable for
+convolution with the spectrum intensity data.}
 }}
 

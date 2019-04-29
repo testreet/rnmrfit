@@ -4,29 +4,13 @@
 \alias{enforce_couplings_1d}
 \title{Enforce coupling relations between peaks.}
 \usage{
-enforce_couplings_1d(nmrresonance, peaks = NULL, position.leeway = 0,
-  width.leeway = 0, height.leeway = 0)
+enforce_couplings_1d(nmrresonance, peaks = NULL)
 }
 \arguments{
 \item{nmrresonance}{An NMRResonance1D object to be modified.}
 
 \item{peaks}{Vector of peak numbers to enforce coupling. The default is to
 select all peaks.}
-
-\item{position.leeway}{A fraction specifying how tightly enforced the
-coupling constraints on peak positions, should be.
-E.g. coupling.leeway = 0 specifies that the j coupling
-constant is exact, whereas couping.leeway = 0.1
-specifies that the coupling constant may differ by +/-
-10 percent.}
-
-\item{width.leeway}{Similar to position.leeway but for peak widths.
-Determines how strictly equal peak widths for all coupled
-peaks are enforced.}
-
-\item{height.leeway}{Similar to position.leeway but for peak heights.
-Determines how strictly the coupling height ratios are
-enforced.}
 }
 \value{
 An NMRResonance1D object with a new set of coupling constraints.

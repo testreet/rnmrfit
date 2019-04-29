@@ -1,26 +1,31 @@
 # Definition of a super class structure for NMR data.
 
-#------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
 #' Super class combining NMR data and scan parameters.
-#'
+#' 
 #' See NMRData1D or NMRData2D.
-#'
+#' 
 #' @slot processed A data.frame containing chemical shift and intensity data.
-#' @slot acqus A list of acqus parameters.
-#' @slot procs A list of procs parameters.
-#'
+#' @slot parameters A list of generic parameters.
+#' @slot acqus A list of parameters specific to acqus file.
+#' @slot procs A list of parameters sepcific to procs file.
+#' 
 #' @name NMRData-class
 #' @export
 NMRData <- setClass("NMRData",
                     slots = c(processed = "data.frame",
+                              parameters = "list",
                               acqus = "list",
                               procs = "list"))
 
 
 
-#========================================================================>
-# Basic setter and getter functions
-#========================================================================>
+#==============================================================================>
+#  Basic setter and getter functions
+#==============================================================================>
+
 
 
 #------------------------------------------------------------------------
@@ -47,12 +52,45 @@ setGeneric("processed<-",
 #' @export
 setReplaceMethod("processed", "NMRData",
                  function(object, value) {
+                   object@processed <- value
+                   validObject(object)
+                   object 
+                 })
+
+
+
+#------------------------------------------------------------------------------
+#' @templateVar slot parameters 
+#' @template NMRData_access
+#' @name parameters
+#' @export
+setGeneric("parameters", 
+           function(object, ...) standardGeneric("parameters"))
+
+#' @rdname parameters
+#' @export
+setMethod("parameters", "NMRData", 
+          function(object) object@parameters)
+
+#' @templateVar slot parameters 
+#' @template NMRData_replacement
+#' @name parameters-set
+#' @export
+setGeneric("parameters<-", 
+           function(object, value) standardGeneric("parameters<-"))
+
+#' @rdname parameters-set
+#' @export
+setReplaceMethod("parameters", "NMRData",
+                 function(object, value) {
                    object@parameters <- value
                    validObject(object)
                    object 
                  })
 
-#------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
 #' @templateVar slot procs 
 #' @template NMRData_access
 #' @name procs
@@ -76,12 +114,14 @@ setGeneric("procs<-",
 #' @export
 setReplaceMethod("procs", "NMRData",
                  function(object, value) {
-                   object@parameters <- value
+                   object@procs <- value
                    validObject(object)
                    object 
                  })
 
-#------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
 #' @templateVar slot acqus 
 #' @template NMRData_access
 #' @name acqus
@@ -105,43 +145,46 @@ setGeneric("acqus<-",
 #' @export
 setReplaceMethod("acqus", "NMRData",
                  function(object, value) {
-                   object@parameters <- value
+                   object@acqus <- value
                    validObject(object)
                    object 
                  })
 
 
 
-#========================================================================>
-# Defining list and data.frame like behaviour
-#========================================================================>
+#==============================================================================>
+#  Defining list and data.frame like behaviour
+#==============================================================================>
 
-#------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
 #' Convert NMRData object to list
-#'
+#' 
 #' Outputs all slot values as entries in a list.
-#'
+#' 
 #' @param x NMRData object.
-#'
+#' 
 #' @export
 as.list.NMRData <- function(x) {
-  list(processed = x@processed, procs = x@procs, acqus = x@acqus)
+  list(processed = x@processed, parameters = x@parameters, 
+       procs = x@procs, acqus = x@acqus)
 }
 
 setMethod("as.list", "NMRData", as.list.NMRData)
 
-#------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
 #' Convert NMRData object to data.frame
-#'
+#' 
 #' Outputs the processed data.frame, dropping acqus and procs lists.
-#'
+#' 
 #' @param x NMRData object.
-#'
+#' 
 #' @export
 as.data.frame.NMRData <- function(x) {
   x@processed
 }
 
 setMethod("as.data.frame", "NMRData", as.data.frame.NMRData)
-
-
