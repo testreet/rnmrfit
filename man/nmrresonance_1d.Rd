@@ -5,7 +5,7 @@
 \title{Generate an NMRResonance1D object based on simplified peak list}
 \usage{
 nmrresonance_1d(peaks, id = NULL, peak.width = 1, fraction.gauss = 0,
-  position.leeway = 0, height.leeway = 0, width.leeway = 0)
+  position.leeway = 0, area.leeway = 0, width.leeway = 0)
 }
 \arguments{
 \item{peaks}{A numeric vector of singlet chemical shifts or a character
@@ -34,8 +34,8 @@ constant is exact, whereas couping.leeway = 0.1
 specifies that the coupling constant may differ by +/-
 10 percent.}
 
-\item{height.leeway}{Similar to position.leeway but for peak heights.
-Determines how strictly the coupling height ratios are
+\item{area.leeway}{Similar to position.leeway but for peak areas. 
+Determines how strictly the coupling area ratios are
 enforced.}
 
 \item{width.leeway}{Similar to position.leeway but for peak widths.

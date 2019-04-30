@@ -3,43 +3,43 @@
 \docType{methods}
 \name{set_conservative_bounds}
 \alias{set_conservative_bounds}
-\alias{set_conservative_bounds,NMRScaffold1D-method}
-\title{Set conservative bounds on an NMRScaffold1D or NMRScaffold2D object}
+\alias{set_conservative_bounds,NMRResonance1D-method}
+\title{Set conservative bounds on an NMRResonance1D object}
 \usage{
 set_conservative_bounds(object, position = TRUE, height = TRUE,
-  width = TRUE, baseline = TRUE, phase = TRUE, widen = FALSE, ...)
+  width = TRUE, nmrdata = NULL, widen = FALSE, ...)
 
-\S4method{set_conservative_bounds}{NMRScaffold1D}(object,
-  position = TRUE, height = TRUE, width = TRUE, baseline = TRUE,
-  phase = TRUE, widen = FALSE)
+\S4method{set_conservative_bounds}{NMRResonance1D}(object,
+  position = TRUE, height = TRUE, width = TRUE, nmrdata = NULL,
+  widen = FALSE)
 }
 \arguments{
-\item{object}{An NMRScaffold1D or NMRscaffold2D object with NMR data
-attached.}
+\item{object}{An NMRResonance object.}
 
-\item{position}{TRUE to prevent peaks from leaving the peak area and
-to keep initial positions to within 20 percent of the 
-initial values. FALSE to disable.}
+\item{position}{Without reference data, position is limited to plus or minus
+0.1 ppm. With reference data, the position of the peaks is
+forced inside the domain of the data. FALSE to disable.}
 
-\item{height}{TRUE to prevent negative peaks and limit peak height to
-50 percent of the maximum peak value. FALSE to disable.}
+\item{height}{Without reference data, height is set to strictly positive.
+With reference data, height is also limited to no more than 150
+percent of the maximum peak value. FALSE to disable.}
 
-\item{width}{TRUE to set a minimum peak width of 0 Hz and a maximum peak
-width of 3 Hz. FALSE to disable.}
+\item{width}{Without reference data, minimum peak width is set to almost, but
+not quite 0 Hz (1e-3 Hz) and a maximum peak width of 3 Hz. With
+reference data, peak width is prevented from being more than 20
+percent of the data range.  FALSE to disable.}
 
-\item{baseline}{TRUE to prevent the baseline from exceeding 25 percent of
-maximum peak height in the original data. FALSE to disable.}
-
-\item{phase}{TRUE to limit phase correction within 45 degrees. FALSE to
-disable.}
+\item{nmrdata}{An optional NMRData1D object that can serve as a reference
+point for the bounds.}
 
 \item{widen}{FALSE to prevent new bounds from widening existing bounds.}
 }
 \value{
-A new NMRScaffold1D or NMRScaffold2D object with modified parameters.
+A new NMRResonance1D object with modified bounds.
 }
 \description{
-A convenience function that sets reasonable bounds on the fit. These
-bounds are assumed to be widely applicable to most simple NMR data.
-Each set of bounds can be turned on or off as necessary.
+A convenience function that sets reasonable bounds on the fit. These bounds
+are assumed to be widely applicable to most simple NMR data. Each set of
+bounds can be turned on or off as necessary. A slightly better set of bounds
+can be selected if a reference NMRData1D object is provided.
 }

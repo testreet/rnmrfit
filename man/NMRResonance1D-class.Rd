@@ -17,11 +17,11 @@ peak. All peaks are characterized by a position (in ppm), height
 (in relative intensity units), width (in ppm or Hz), and
 fraction.guass (in percent).}
 
-\item{\code{couplings}}{A data.frame relating the position and height parameters of
+\item{\code{couplings}}{A data.frame relating the position and area parameters of
 the peaks, effectively combining singlets into multiplets.}
 
 \item{\code{couplings.leeway}}{A list specifying how tightly enforced the coupling
-constraints on peak positions, heights, and widths
+constraints on peak positions, areas, and widths
 should be. E.g. position = 0 specifies that the j
 coupling constant is exact, whereas width = 0.1
 specifies that the widths of individual peaks may

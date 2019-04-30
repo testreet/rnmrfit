@@ -18,10 +18,10 @@
 #'             peak. All peaks are characterized by a position (in ppm), height
 #'             (in relative intensity units), width (in ppm or Hz), and
 #'             fraction.guass (in percent).
-#' @slot couplings A data.frame relating the position and height parameters of
+#' @slot couplings A data.frame relating the position and area parameters of
 #'                 the peaks, effectively combining singlets into multiplets.
 #' @slot couplings.leeway A list specifying how tightly enforced the coupling
-#'                        constraints on peak positions, heights, and widths
+#'                        constraints on peak positions, areas, and widths
 #'                        should be. E.g. position = 0 specifies that the j
 #'                        coupling constant is exact, whereas width = 0.1
 #'                        specifies that the widths of individual peaks may
@@ -40,7 +40,7 @@ NMRResonance1D <- setClass("NMRResonance1D",
   ),
   prototype = prototype(
     couplings = data.frame(),
-    couplings.leeway = list(position = 0, width = 0, height = 0),
+    couplings.leeway = list(position = 0, width = 0, area = 0),
     bounds = list(lower = NULL, upper = NULL)
   )
 )
@@ -83,7 +83,7 @@ validNMRResonance1D <- function(object) {
   if ( nrow(couplings) > 0 ) {
 
     valid.columns <- c('id.1', 'id.2', 'peak.1', 'peak.2', 
-                       'position.difference', 'height.ratio')
+                       'position.difference', 'area.ratio')
     if (! identical(colnames(couplings), valid.columns) ) {
       valid <- FALSE
       new.msg <- sprintf('"couplings" must have the following columns: %s',
@@ -323,10 +323,10 @@ split_peaks_1d <- function(peaks, number, constant) {
 #' Enforce coupling relations between peaks.
 #' 
 #' Adds a set of constraints between specified peaks that fixes the differences
-#' between peak positions and the ratios between peak widths/heights to
-#' whatever the current values are. These constraints can be relaxed by setting
-#' leeway parameters that convert hard equality constraints to soft inequality
-#' constraints around a fraction of the fixed values.
+#' between peak positions and the ratios between peak areas to whatever the
+#' current positions and peak heights are. These constraints can be relaxed by
+#' setting leeway parameters that convert hard equality constraints to soft
+#' inequality constraints around a fraction of the fixed values.
 #' 
 #' @param nmrresonance An NMRResonance1D object to be modified.
 #' @param peaks Vector of peak numbers to enforce coupling. The default is to
@@ -359,8 +359,8 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
   ratios <- d$height[index.2]/d$height[index.1]
   couplings <- data.frame(id.1 = d$id[index.1], id.2 = d$id[index.2], 
                           peak.1 = d$peak[index.1], peak.2 = d$peak[index.2],
-                          position.differences = differences,
-                          height.ratios = ratios)
+                          position.difference = differences,
+                          area.ratio = ratios)
 
   nmrresonance@couplings <- rbind(nmrresonance@couplings, couplings)
   nmrresonance
@@ -407,8 +407,8 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 #' @param width.leeway Similar to position.leeway but for peak widths.
 #'                     Determines how strictly equal peak widths for all coupled
 #'                     peaks are enforced.
-#' @param height.leeway Similar to position.leeway but for peak heights.
-#'                      Determines how strictly the coupling height ratios are
+#' @param area.leeway Similar to position.leeway but for peak areas. 
+#'                      Determines how strictly the coupling area ratios are
 #'                      enforced.
 #' 
 #' @return An NMRResonance1D object.
@@ -416,7 +416,7 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 #' @export
 nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1, 
                             fraction.gauss = 0, position.leeway = 0,
-                            height.leeway = 0, width.leeway = 0) {
+                            area.leeway = 0, width.leeway = 0) {
 
   #---------------------------------------
   # Building peak list
@@ -460,7 +460,7 @@ nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1,
   # Starting with blanks first
   couplings <- data.frame()
   couplings.leeway = list(position = position.leeway, width = width.leeway,
-                          height = height.leeway)
+                          area = area.leeway)
 
   nmrresonance = new('NMRResonance1D', peaks = peaks, couplings = couplings, 
                                        couplings.leeway = couplings.leeway)
@@ -688,40 +688,19 @@ setReplaceMethod("bounds", "NMRResonance1D",
 
 
 #------------------------------------------------------------------------------
-# Check simple bounds to make sure they are valid
-.check_bounds <- function(bounds) {
-
-  if ( length(bounds) != 2 ) {
-    msg <- paste("All bounds must be vectors of two elements consisting",
-                 "of a lower and upper bound.")
-    stop(msg)
-  }
-
-  if ( bounds[1] > bounds[2] ) {
-    msg <- paste("Lower bound must be smaller than upper bound.",
-                 "Proceeding with current constraints will result in a",
-                 "fit error.")
-    warning(msg)
-  }
-
-}
-
-
-
-#------------------------------------------------------------------------------
-#' Set absolute bounds of an NMRResonance1D object
+#' Set general bounds of an NMRResonance1D object
 #' 
 #' This function provides a convenience method for generating bounds using a
 #' simple set of lower and upper constraints on basic peak parameters such as
-#' position, height, width, fraction.gauss. Note that the term "absolute"
-#' refers to the fact that the same bounds are applied to each and every peak,
-#' regardless of current parameter values. However, these bounds can still be
-#' normalized to a set of data using the optional nmrdata argument.
+#' position, height, width, fraction.gauss. The term "general" refers to the
+#' fact that the same bounds are applied to each and every peak, regardless of
+#' current parameter values. These bounds can be normalized to a set of data
+#' using the optional nmrdata argument.
 #' 
-#' In practice, absolute bounds are primarily useful for placing a hard
+#' In practice, general bounds are primarily useful for placing a hard
 #' constraint on peak widths and preventing negative heights. Values of 0 for
 #' widths and height can also cause issues during optimization, so simple
-#' absolute bounds can be used to prevent errors.
+#' general bounds can be used to prevent errors.
 #' 
 #' @param object An NMRResonance1D object.
 #' @param position A vector of two elements corresponding to a lower and upper
@@ -735,9 +714,9 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #'               values.
 #' @param width A vector of two elements corresponding to a lower and upper
 #'              bound for peak width in Hz. If nmrdata is provided, values are
-#'              taken as fraction of the overall data range. So 0.1 would
-#'              correspond to a nominal peak width that covers 1 tenth of the
-#'              overall data range.
+#'              taken as fraction of the general data range. So 0.1 would
+#'              correspond to a nominal peak width that covers a tenth of the
+#'              general data range.
 #' @param fraction.gauss A vector of two elements corresponding to a lower and
 #'                       upper bound for the Gaussian fraction of the peak. This
 #'                       can be set to c(0, 0) to force Lorentzian peaks. Any
@@ -750,17 +729,17 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #' 
 #' @return A new NMRResonance1D object with modified bounds.
 #' 
-#' @name set_absolute_bounds
+#' @name set_general_bounds
 #' @export
-setGeneric("set_absolute_bounds", 
+setGeneric("set_general_bounds", 
   function(object, position = NULL, height = NULL, width = NULL, 
            fraction.gauss = NULL, nmrdata = NULL, widen = FALSE, ...) {
-    standardGeneric("set_absolute_bounds")
+    standardGeneric("set_general_bounds")
   })
 
-#' @rdname set_absolute_bounds
+#' @rdname set_general_bounds
 #' @export
-setMethod("set_absolute_bounds", "NMRResonance1D",
+setMethod("set_general_bounds", "NMRResonance1D",
   function(object, position = NULL, height = NULL, width = NULL, 
            nmrdata = NULL, widen = FALSE, ...) {
 
@@ -769,6 +748,7 @@ setMethod("set_absolute_bounds", "NMRResonance1D",
   lower <- object@bounds$lower
   upper <- object@bounds$upper
 
+  #---------------------------------------
   # Scaling all bounds if nmrdata has been provided
   if (! is.null(nmrdata) ) {
 
@@ -791,33 +771,41 @@ setMethod("set_absolute_bounds", "NMRResonance1D",
     width <- width * (x.range[2] - x.range[1]) * sfo1
   }
 
-  # Position
-  if ( length(position) > 0 ) {
-    .check_bounds(position)
-    lower$position <- position[1]
-    upper$position <- position[2]
+  #---------------------------------------
+  # Defining a bound check function
+  .check_bounds <- function(bounds) {
+
+    if ( length(bounds) != 2 ) {
+      msg <- paste("All bounds must be vectors of two elements consisting",
+                   "of a lower and upper bound.")
+      stop(msg)
+    }
+
+    if ( bounds[1] > bounds[2] ) {
+      msg <- paste("Lower bound must be smaller than upper bound.",
+                   "Proceeding with current constraints will result in a",
+                   "fit error.")
+      warning(msg)
+    }
+
   }
 
-  # Height
-  if ( length(height) > 0 ) {
-    .check_bounds(height)
-    lower$height <- height[1]
-    upper$height <- height[2]
+  #---------------------------------------
+  # Creating a list of bounds to loop through each in term
+  bounds = list(position = position, height = height, width = width,
+                fraction.gauss = fraction.gauss)
+
+  for ( parameter in names(bounds) ) {
+    if ( length(bounds[[parameter]]) > 0 ) {
+      .check_bounds(bounds[[parameter]])
+      lower[[parameter]] <- bounds[[parameter]][1]
+      upper[[parameter]] <- bounds[[parameter]][2]
+    }
   }
 
-  # Width
-  if ( length(width) > 0 ) {
-    .check_bounds(width)
-    lower$width <- width[1]
-    upper$width <- width[2]
-  }
-
-  # Fraction gauss
-  if (! is.null(fraction.gauss) ) {
-    .check_bounds(fraction.gauss)
-    lower$fraction.gauss <- ifelse(fraction.gauss[1] > 0, fraction.gauss[1], 0)
-    upper$fraction.gauss <- ifelse(fraction.gauss[2] < 1, fraction.gauss[2], 1)
-  }
+  # Fraction gauss is a little different because it must be 0-1
+  lower$fraction.gauss[lower$fraction.gauss < 0] <- 0
+  upper$fraction.gauss[upper$fraction.gauss > 0] <- 1
 
   # Ensuring that parameters are only widened if desired
   columns <- c('position', 'width', 'height', 'fraction.gauss')
@@ -842,47 +830,54 @@ setMethod("set_absolute_bounds", "NMRResonance1D",
 
 
 #------------------------------------------------------------------------------
-#' Set relative bounds of an NMRResonance1D object
+#' Set offset bounds of an NMRResonance1D object
 #' 
 #' This function provides a convenience method for generating bounds using a
 #' simple set of lower and upper constraints on basic peak parameters such as
-#' position, height, width, fraction.gauss. Note that the term "relative"
-#' refers to the fact that bounds are applied relative to the current values of
-#' the parameters.
+#' position, height, width, fraction.gauss. The term "offset" refers to the
+#' fact that bounds are applied as an offset to current values of the
+#' parameters. These bounds can be expressed in absolute (e.g. -0.1 and +0.1
+#' ppm) or relative (e.g. -1 percent and +1 percent) terms.
 #' 
-#' In practice, relative bounds are primarily useful for preventing peak
+#' In practice, offset bounds are primarily useful for preventing peak
 #' positions from drifting too much from initial guesses and for fine-tuning a
 #' fit once an initial optimization is performed. It is not recommended to use
-#' strict relative bounds based on rough initial parameter guesses.
+#' strict offset bounds based on rough initial parameter guesses.
 #' 
 #' @param object An NMRResonance1D object.
-#' @param position A vector of two elements corresponding to a lower and upper
-#'                 bound for peak position, where the value is taken as a
+#' @param position A vector of two elements to be added to current peak
+#'                 positions to generate a set of lower and upper bounds. If
+#'                 relative is true, the values are treated as fractions to be
+#'                 multipled by the current peak position before addition.
 #'                 fraction of the current position.
-#' @param height A vector of two elements corresponding to a lower and upper
-#'               bound for peak height, where the value is taken as a fraction
-#'               of the current height.
-#' @param width A vector of two elements corresponding to a lower and upper
-#'              bound for peak width, where the value is taken as a fraction of
-#'              the current width.
+#' @param height A vector of two elements to be added to current peak heights to
+#'               generate a set of lower and upper bounds. If relative is true,
+#'               the values are treated as fractions to be multipled by the
+#'               current peak heights before addition.
+#' @param width A vector of two elements to be added to current peak widths to
+#'              generate a set of lower and upper bounds. If relative is true,
+#'              the values are treated as fractions to be multipled by the
+#'              current peak heights before addition.
+#' @param relative TRUE to treat values as relative fractions, FALSE to apply
+#'                 them directly.
 #' @param widen FALSE to prevent new bounds from widening existing bounds.
 #' @inheritParams methodEllipse
 #' 
 #' @return A new NMRResonance1D object with modified bounds.
 #' 
-#' @name set_relative_bounds
+#' @name set_offset_bounds
 #' @export
-setGeneric("set_relative_bounds", 
+setGeneric("set_offset_bounds", 
   function(object, position = NULL, height = NULL, width = NULL, 
-           widen = FALSE, ...) {
-    standardGeneric("set_relative_bounds")
+           relative = FALSE, widen = FALSE, ...) {
+    standardGeneric("set_offset_bounds")
   })
 
-#' @rdname set_relative_bounds
+#' @rdname set_offset_bounds
 #' @export
-setMethod("set_relative_bounds", "NMRResonance1D",
+setMethod("set_offset_bounds", "NMRResonance1D",
   function(object, position = NULL, height = NULL, width = NULL, 
-           widen = FALSE) {
+           relative = FALSE, widen = FALSE) {
 
   # Initializing bounds
   object <- .initialize_bounds(object)
@@ -890,34 +885,56 @@ setMethod("set_relative_bounds", "NMRResonance1D",
   lower <- object@bounds$lower
   upper <- object@bounds$upper
 
-  # Position
-  if ( length(position) > 0 ) {
-    .check_bounds(position)
-    lower$position <- position[1]*peaks$position
-    upper$position <- position[2]*peaks$position
+  #---------------------------------------
+  # Defining a bound check function
+  .check_bounds <- function(bounds) {
+
+    if ( length(bounds) != 2 ) {
+      msg <- paste("All bounds must be vectors of two elements consisting",
+                   "of a lower and upper bound.")
+      stop(msg)
+    }
+
+    msg2 <- "Proceeding with current constraints will result in a fit error."
+
+    if ( bounds[1] > 0 ) {
+      msg <- paste("Lower offsets must be negative so that resulting bounds",
+                   "include initial values.", msg2)
+      stop(msg)
+    }
+
+    if ( bounds[2] < 0 ) {
+      msg <- paste("Upper offsets must be positive so that resulting bounds",
+                   "include initial values.", msg2)
+      stop(msg)
+    }
+
+    if ( bounds[1] > bounds[2] ) {
+      msg <- paste("Lower bound must be smaller than upper bound.", msg2)
+      warning(msg)
+    }
+
   }
 
-  # Height
-  if ( length(height) > 0 ) {
-    .check_bounds(height)
-    lower$height <- height[1]*peaks$height
-    upper$height <- height[2]*peaks$height
-  }
+  #---------------------------------------
+  # Creating a list of bounds to loop through each in term
+  bounds = list(position = position, height = height, width = width)
 
-  # Width
-  if ( length(width) > 0 ) {
-    .check_bounds(width)
-    lower$width <- width[1]*peaks$width
-    upper$width <- width[2]*peaks$width
-  }
+  for ( parameter in names(bounds) ) {
+    if ( length(bounds[[parameter]]) > 0 ) {
+      .check_bounds(bounds[[parameter]])
 
-  # Fraction gauss
-  if (! is.null(fraction.gauss) ) {
-    .check_bounds(fraction.gauss)
-    lower$fraction.gauss <- ifelse(fraction.gauss[1]*peaks$fraction.gauss > 0, 
-                                   fraction.gauss[1]*peaks$fraction.gauss, 0)
-    upper$fraction.gauss <- ifelse(fraction.gauss[2]*peaks$fraction.gauss < 1, 
-                                   fraction.gauss[2]*peaks$fraction.gauss, 1)
+      lower.offset <- bounds[[parameter]][1]
+      upper.offset <- bounds[[parameter]][2]
+      
+     if ( relative ) {
+        lower.offset <- lower.offset*peaks[[parameter]]
+        upper.offset <- upper.offset*peaks[[parameter]]
+      } 
+
+      lower[[parameter]] <- peaks[[parameter]] + lower.offset
+      upper[[parameter]] <- peaks[[parameter]] + upper.offset
+    }
   }
 
   # Ensuring that parameters are only widened if desired
@@ -947,8 +964,8 @@ setMethod("set_relative_bounds", "NMRResonance1D",
 #' 
 #' A convenience function that sets reasonable bounds on the fit. These bounds
 #' are assumed to be widely applicable to most simple NMR data. Each set of
-#' bounds can be turned on or off as necessary. A better set of bounds can be
-#' selected if a reference NMRData1D object is provided.
+#' bounds can be turned on or off as necessary. A slightly better set of bounds
+#' can be selected if a reference NMRData1D object is provided.
 #' 
 #' @param object An NMRResonance object.
 #' @param position Without reference data, position is limited to plus or minus
@@ -957,9 +974,10 @@ setMethod("set_relative_bounds", "NMRResonance1D",
 #' @param height Without reference data, height is set to strictly positive.
 #'               With reference data, height is also limited to no more than 150
 #'               percent of the maximum peak value. FALSE to disable.
-#' @param width With or without reference data,  minimum peak width is set to
-#'              almost, but not quite 0 Hz (1e-3 Hz) and a maximum peak width of
-#'              3 Hz. FALSE to disable.
+#' @param width Without reference data, minimum peak width is set to almost, but
+#'              not quite 0 Hz (1e-3 Hz) and a maximum peak width of 3 Hz. With
+#'              reference data, peak width is prevented from being more than 20
+#'              percent of the data range.  FALSE to disable.
 #' @param nmrdata An optional NMRData1D object that can serve as a reference
 #'                point for the bounds.
 #' @param widen FALSE to prevent new bounds from widening existing bounds.
@@ -981,19 +999,18 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
   function(object, position = TRUE,  height = TRUE, width = TRUE, 
            nmrdata = NULL, widen = FALSE) { 
 
-  # First, do a single pass over absolute bounds with no reference
-  if ( height )  abs.height <- c(0, Inf)
-  else abs.height <- NULL
+  # First, do a single pass over general bounds with no reference
+  if ( height )  gen.height <- c(0, Inf)
+  else gen.height <- NULL
 
-  if ( width ) abs.width <- c(0.003, 3)
-  else abs.width <- NULL
+  if ( width ) gen.width <- c(0.003, 3)
+  else gen.width <- NULL
 
-  object <- set_absolute_bounds(object, height = abs.height, width = abs.width)
+  object <- set_general_bounds(object, height = gen.height, width = gen.width)
 
-  # Manually setting position
+  # Adding position offsets
   if ( position ) {
-    object@bounds$lower$position <- object@peaks$position - 0.1
-    object@bounds$upper$position <- object@peaks$position + 0.1
+    object <- set_offset_bounds(object, position = c(-0.1, 0.1))
   }
 
   # If nmrdata is provided, add further constraints  
@@ -1002,19 +1019,22 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
     if ( class(nmrdata) != 'NMRData1D' ) {
       msg <- '"nmrdata" must be a valid NMRData1D object.'
       stop(msg)
-    }
-    else {
+    } else {
       validObject(nmrdata)
     }
 
-    if ( position )  abs.position <- c(0, 1)
-    else abs.height <- NULL
+    if ( position )  gen.position <- c(0, 1)
+    else gen.position <- NULL
 
-    if ( height ) abs.height <- c(0, 1.5)
-    else abs.height <- NULL
+    if ( height ) gen.height <- c(0, 1.5)
+    else gen.height <- NULL
 
-    object <- set_absolute_bounds(object, position = abs.position, 
-                                  height = abs.height, nmrdata = nmrdata)
+    if ( width ) gen.width <- c(0, 0.2)
+    else gen.width <- NULL
+
+    object <- set_general_bounds(object, position = gen.position, 
+                                 height = gen.height, width = gen.width,
+                                 nmrdata = nmrdata)
   }
 
   object
@@ -1023,39 +1043,41 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 
 
 #========================================================================>
-# Calculations based on current parameter values.
+#  Lineshape and area calculations
 #========================================================================>
 
 
 
 #------------------------------------------------------------------------
 #' Generate lineshape function
-#'
-#' This is primarily an internal method that generates a lineshape
-#' function that depends on the object input. 
-#'
-#' TO DO.
-#'
-#' Warning, a lineshape will be generated whether the parameters are
-#' normalized or not, and the domain/range will vary as a result.
-#'
-#' @param object An NMRScaffold1D or NMRScaffold2D object.
+#' 
+#' This is primarily an internal method that outputs a function (or a tbl_df
+#' data frame of functions), where the resulting function(s) output spectral
+#' intensity data given a vector input of chemical shifts.
+#' 
+#' @param object An NMRResonance1D object.
+#' @param sum.peaks TRUE to add all individual peaks together and output a
+#'                  single function, FALSE to output a data frame of functions
+#'                  that correspond to individual peaks.
+#' @param components 'r/i' to output both real and imaginary data, 'r' to output
+#'                   only real and 'i' to output only imaginary.
 #' @inheritParams methodEllipse
-#'
-#' @return TO DO.
-#'
+#' 
+#' @return A function or tbl_df data frame of functions where each function
+#'         outputs spectral intensity data given a vector input of chemical
+#'         shifts.
+#' 
 #' @name f_lineshape
 #' @export
 setGeneric("f_lineshape", 
-  function(object, ...) {
+  function(object, sum.peaks = TRUE, components = 'r/i', ...) {
     standardGeneric("f_lineshape")
 })
 
-#------------------------------------------------------------------------
 #' @rdname f_lineshape
 #' @export
-setMethod("f_lineshape", "NMRScaffold1D",
-  function(object) {
+setMethod("f_lineshape", "NMRResonance1D",
+  function(object, sum.peaks = TRUE, components = 'r/i') {
 
   # Converting object peak_units to ppm
   object <- set_peak_units(object, peak.units = 'ppm')

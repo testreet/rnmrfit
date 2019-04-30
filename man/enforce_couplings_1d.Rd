@@ -17,8 +17,8 @@ An NMRResonance1D object with a new set of coupling constraints.
 }
 \description{
 Adds a set of constraints between specified peaks that fixes the differences
-between peak positions and the ratios between peak widths/heights to
-whatever the current values are. These constraints can be relaxed by setting
-leeway parameters that convert hard equality constraints to soft inequality
-constraints around a fraction of the fixed values.
+between peak positions and the ratios between peak areas to whatever the
+current positions and peak heights are. These constraints can be relaxed by
+setting leeway parameters that convert hard equality constraints to soft
+inequality constraints around a fraction of the fixed values.
 }
