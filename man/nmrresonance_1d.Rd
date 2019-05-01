@@ -4,20 +4,26 @@
 \alias{nmrresonance_1d}
 \title{Generate an NMRResonance1D object based on simplified peak list}
 \usage{
-nmrresonance_1d(peaks, id = NULL, peak.width = 1, fraction.gauss = 0,
-  position.leeway = 0, area.leeway = 0, width.leeway = 0)
+nmrresonance_1d(peaks, sf = nmrsession_1d("sf"), id = NULL,
+  width = 1, fraction.gauss = 0, position.leeway = 0,
+  area.leeway = 0, width.leeway = 0)
 }
 \arguments{
 \item{peaks}{A numeric vector of singlet chemical shifts or a character
 string specifying multiplets of the form "3 d 1.2". See
 ?parse_peaks_1d for more information.}
 
+\item{sf}{Sweep frequency (in MHz) -- needed to convert coupling constants
+from Hz to ppm. In most cases, it is recommended to set a single
+default value using nmrsession_1d(sf = ...), but an override can be
+provided here.}
+
 \item{id}{A string specifying resonance name. If left empty, a name is
 automatically generated from the peaks argument.}
 
-\item{peak.width}{Initial estimate of peak width (in Hz). For Voigt
-lineshapes, this value is taken as the Lorentzian
-component, with the Gaussian component calculated from
+\item{width}{Initial estimate of peak width (in Hz). For Voigt lineshapes,
+this value is taken as the Lorentzian component, with the
+Gaussian component calculated from
 peak.width*frac.guass/(1-frac.gauss).}
 
 \item{fraction.gauss}{Fraction of overall peak width that corresponds to a
@@ -34,9 +40,8 @@ constant is exact, whereas couping.leeway = 0.1
 specifies that the coupling constant may differ by +/-
 10 percent.}
 
-\item{area.leeway}{Similar to position.leeway but for peak areas. 
-Determines how strictly the coupling area ratios are
-enforced.}
+\item{area.leeway}{Similar to position.leeway but for peak areas. Determines
+how strictly the coupling area ratios are enforced.}
 
 \item{width.leeway}{Similar to position.leeway but for peak widths.
 Determines how strictly equal peak widths for all coupled

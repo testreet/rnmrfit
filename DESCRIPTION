@@ -6,6 +6,7 @@ Description: Implements NMR lineshape fitting using the real and imaginary compo
 Depends:
     R (>= 3.2.2),
     dplyr (>= 0.5.0),
+    GlobalOptions (>= 0.1),
     magrittr (>= 1.5),
     nloptr (>= 1.0.4),
     plotly (>= 4.6.0),
@@ -31,3 +32,4 @@ Collate:
     'misc.R'
     'processing.R'
     'RcppExports.R'
+    'session.R'

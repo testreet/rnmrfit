@@ -66,7 +66,7 @@ validNMRResonance1D <- function(object) {
   bounds <- object@bounds
 
   valid <- TRUE
-  msg <- c()
+  err <- c()
 
   #---------------------------------------
   # Checking peak column names
@@ -75,9 +75,9 @@ validNMRResonance1D <- function(object) {
 
   if (! identical(colnames(peaks), valid.columns) ) {
     valid <- FALSE
-    new.msg <- sprintf('"peaks" must have the following columns: %s',
+    new.err <- sprintf('"peaks" must have the following columns: %s',
                        paste(valid.columns, collapse = ', '))
-    msg <- c(msg, new.msg)
+    err <- c(err, new.err)
   }
 
   #---------------------------------------
@@ -88,9 +88,9 @@ validNMRResonance1D <- function(object) {
                        'position.difference', 'area.ratio')
     if (! identical(colnames(couplings), valid.columns) ) {
       valid <- FALSE
-      new.msg <- sprintf('"couplings" must have the following columns: %s',
+      new.err <- sprintf('"couplings" must have the following columns: %s',
                          paste(valid.columns, collapse = ', '))
-      msg <- c(msg, new.msg)
+      err <- c(err, new.err)
     }
 
     valid.values <- paste(peaks$id, peaks$peak)
@@ -99,8 +99,8 @@ validNMRResonance1D <- function(object) {
 
     if (! (logic1 & logic2) ) {
       valid <- FALSE
-      new.msg <- '"couplings" ids and peaks must correspond to existing peaks.'
-      msg <- c(msg, new.msg)
+      new.err <- '"couplings" ids and peaks must correspond to existing peaks.'
+      err <- c(err, new.err)
     }
   }
 
@@ -111,17 +111,17 @@ validNMRResonance1D <- function(object) {
     logic <- identical(colnames(bounds$lower), valid.columns)
     if (! logic ) {
       valid <- FALSE
-      new.msg <- sprintf('"bounds$lower" must have the following columns: %s',
+      new.err <- sprintf('"bounds$lower" must have the following columns: %s',
                          paste(valid.columns, collapse = ', '))
-      msg <- c(msg, new.msg)
+      err <- c(err, new.err)
     }
 
     logic1 <- identical(bounds$lower$id, peaks$id)
     logic2 <- identical(bounds$lower$peak, peaks$peak)
     if (! (logic1 && logic2) ) {
       valid <- FALSE
-      new.msg <- '"bounds$lower" id and peak columns must match "peaks"'
-      msg <- c(msg, new.msg)
+      new.err <- '"bounds$lower" id and peak columns must match "peaks"'
+      err <- c(err, new.err)
     }
   }
 
@@ -132,24 +132,24 @@ validNMRResonance1D <- function(object) {
     logic <- identical(colnames(bounds$upper), valid.columns)
     if (! logic ) {
       valid <- FALSE
-      new.msg <- sprintf('"bounds$upper" must have the following columns: %s',
+      new.err <- sprintf('"bounds$upper" must have the following columns: %s',
                          paste(valid.columns, collapse = ', '))
-      msg <- c(msg, new.msg)
+      err <- c(err, new.err)
     }
 
     logic1 <- identical(bounds$upper$id, peaks$id)
     logic2 <- identical(bounds$upper$peak, peaks$peak)
     if (! (logic1 && logic2) ) {
       valid <- FALSE
-      new.msg <- '"bounds$upper" id and peak columns must match "peaks"'
-      msg <- c(msg, new.msg)
+      new.err <- '"bounds$upper" id and peak columns must match "peaks"'
+      err <- c(err, new.err)
     }
   }
 
   #---------------------------------------
   # Output
   if (valid) TRUE
-  else msg
+  else err
 }
 
 # Add the extended validity testing
@@ -242,8 +242,8 @@ parse_peaks_1d <- function(coupling.string) {
   codes <- str_replace_all(codes, '\\s', '')
   codes <- suppressWarnings(as.numeric(str_split(codes, '')[[1]]))
 
-  msg <- 'The coupling definition "%s" could not be parsed.'
-  if ( any( is.na(codes) ) ) stop(sprintf(msg, original))
+  err <- 'The coupling definition "%s" could not be parsed.'
+  if ( any( is.na(codes) ) ) stop(sprintf(err, original))
 
   # If there is only one singlet, no need to parse constants
   if ( identical(codes, 1) ) {
@@ -259,13 +259,13 @@ parse_peaks_1d <- function(coupling.string) {
   # Split by single spaces (previous conversions should have removed issues)
   constants <- suppressWarnings(as.numeric(str_split(constants, ' ')[[1]]))
 
-  msg <- 'The coupling constant definition "%s" could not be parsed.'
-  if ( any( is.na(constants) ) ) stop(sprintf(msg, original))
+  err <- 'The coupling constant definition "%s" could not be parsed.'
+  if ( any( is.na(constants) ) ) stop(sprintf(err, original))
 
   # Making sure that the number of codes matches constants
-  msg <- '"%s" was not parsed with an equal number of couplings and constants.'
+  err <- '"%s" was not parsed with an equal number of couplings and constants.'
   logic <- sum(codes != 1) != sum(! is.na(constants))
-  if ( logic ) stop(sprintf(msg, original.string))
+  if ( logic ) stop(sprintf(err, original.string))
 
   # Filling in NA values in case there are singlets
   for (i in which(codes == 1)) {
@@ -341,8 +341,8 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 
   # Checking validity
   if ( class(nmrresonance) != 'NMRResonance1D' ) {
-    msg <- '"nmrresonance" must be a valid NMRResonance1D object.'
-    stop(msg)
+    err <- '"nmrresonance" must be a valid NMRResonance1D object.'
+    stop(err)
   }
   else {
     validObject(nmrresonance)
@@ -352,6 +352,9 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
   d <- nmrresonance@peaks
   if ( is.null(peaks) ) peaks <- d$peak
   d <- d[d$peak %in% peaks, ]
+
+  # There must be more than one peak to add couplings
+  if ( nrow(d) <= 1 ) return(nmrresonance)
 
   # Calculating
   index.1 <- 1:(nrow(d) - 1)
@@ -388,12 +391,16 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 #' @param peaks A numeric vector of singlet chemical shifts or a character
 #'              string specifying multiplets of the form "3 d 1.2". See
 #'              ?parse_peaks_1d for more information.
+#' @param sf Sweep frequency (in MHz) -- needed to convert coupling constants
+#'           from Hz to ppm. In most cases, it is recommended to set a single
+#'           default value using nmrsession_1d(sf = ...), but an override can be
+#'           provided here.
 #' @param id A string specifying resonance name. If left empty, a name is
 #'           automatically generated from the peaks argument.
-#' @param peak.width Initial estimate of peak width (in Hz). For Voigt
-#'                   lineshapes, this value is taken as the Lorentzian
-#'                   component, with the Gaussian component calculated from
-#'                   peak.width*frac.guass/(1-frac.gauss).
+#' @param width Initial estimate of peak width (in Hz). For Voigt lineshapes,
+#'              this value is taken as the Lorentzian component, with the
+#'              Gaussian component calculated from
+#'              peak.width*frac.guass/(1-frac.gauss).
 #' @param fraction.gauss Fraction of overall peak width that corresponds to a
 #'                       Gaussian lineshape. A value of 0 corresponds to a
 #'                       Lorentz peak whereas a value of 1 corresponds to a
@@ -409,16 +416,16 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 #' @param width.leeway Similar to position.leeway but for peak widths.
 #'                     Determines how strictly equal peak widths for all coupled
 #'                     peaks are enforced.
-#' @param area.leeway Similar to position.leeway but for peak areas. 
-#'                      Determines how strictly the coupling area ratios are
-#'                      enforced.
+#' @param area.leeway Similar to position.leeway but for peak areas. Determines
+#'                    how strictly the coupling area ratios are enforced.
 #' 
 #' @return An NMRResonance1D object.
 #' 
 #' @export
-nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1, 
-                            fraction.gauss = 0, position.leeway = 0,
-                            area.leeway = 0, width.leeway = 0) {
+nmrresonance_1d <- function(peaks, sf = nmrsession_1d('sf'), id = NULL, 
+                            width = 1, fraction.gauss = 0, 
+                            position.leeway = 0, area.leeway = 0, 
+                            width.leeway = 0) {
 
   #---------------------------------------
   # Building peak list
@@ -434,8 +441,20 @@ nmrresonance_1d <- function(peaks, id = NULL, peak.width = 1,
     # Initializing singlet at chemical shift
     if ( is.null(id) ) id <- peaks
     peaks <- data.frame(id = id, peak = 1, position = coupling$direct.shift,
-                        width = peak.width, height = 1, 
+                        width = width, height = 1, 
                         fraction.gauss = fraction.gauss)
+
+    # If there is splitting to do, convert constants from Hz to ppm
+    if ( any(coupling$number > 1) ) {
+
+      # Checking to make sure that sweep frequency is defined
+      err <- '"sf" must be provided as input or set using nmrsession_1d()'
+      if ( is.null(sf) ) stop(err)
+
+      # Converting coupling constant from Hz to ppm
+      coupling$constant <- coupling$constant/sf
+
+    }
 
     # Looping through the coupling to split the specified peaks
     for ( i in 1:length(coupling$number) ) {
@@ -509,13 +528,13 @@ setMethod(".initialize_bounds", "NMRResonance1D",
 
     # Selecting default values
     values <- list(lower = -Inf, upper = +Inf)
-    data.columns <- c('position', 'width', 'height', 'fraction.gauss')
+    columns <- c('position', 'width', 'height', 'fraction.gauss')
 
     for ( name in names(bounds) ) {
       if ( is.null(bounds[[name]]) || overwrite ) {
 
         peaks <- object@peaks
-        peaks[ , data.columns] <- values[[name]]
+        peaks[ , columns] <- values[[name]]
 
         bounds[[name]] <- peaks
       }
@@ -553,12 +572,12 @@ setMethod("show", "NMRResonance1D",
     cat('\n')
 
     # Bounds
-    data.columns <- c('position', 'width', 'height', 'fraction.gauss')
-    lower <- unlist(bounds$lower[ , data.columns])
-    upper <- unlist(bounds$upper[ , data.columns])
+    columns <- c('position', 'width', 'height', 'fraction.gauss')
+    lower <- unlist(bounds$lower[ , columns])
+    upper <- unlist(bounds$upper[ , columns])
     
     range <- paste('(', lower, ', ', upper, ')', sep = '')
-    peaks[ , data.columns] <- range
+    peaks[ , columns] <- range
 
     cat('Bounds (lower, upper):\n\n')
     print(peaks)
@@ -755,8 +774,8 @@ setMethod("set_general_bounds", "NMRResonance1D",
   if (! is.null(nmrdata) ) {
 
     if ( class(nmrdata) != 'NMRData1D' ) {
-      msg <- '"nmrdata" must be a valid NMRData1D object.'
-      stop(msg)
+      err <- '"nmrdata" must be a valid NMRData1D object.'
+      stop(err)
     }
     else {
       validObject(nmrdata)
@@ -778,16 +797,16 @@ setMethod("set_general_bounds", "NMRResonance1D",
   .check_bounds <- function(bounds) {
 
     if ( length(bounds) != 2 ) {
-      msg <- paste("All bounds must be vectors of two elements consisting",
+      err <- paste("All bounds must be vectors of two elements consisting",
                    "of a lower and upper bound.")
-      stop(msg)
+      stop(err)
     }
 
     if ( bounds[1] > bounds[2] ) {
-      msg <- paste("Lower bound must be smaller than upper bound.",
+      err <- paste("Lower bound must be smaller than upper bound.",
                    "Proceeding with current constraints will result in a",
                    "fit error.")
-      warning(msg)
+      warning(err)
     }
 
   }
@@ -892,28 +911,28 @@ setMethod("set_offset_bounds", "NMRResonance1D",
   .check_bounds <- function(bounds) {
 
     if ( length(bounds) != 2 ) {
-      msg <- paste("All bounds must be vectors of two elements consisting",
+      err <- paste("All bounds must be vectors of two elements consisting",
                    "of a lower and upper bound.")
-      stop(msg)
+      stop(err)
     }
 
-    msg2 <- "Proceeding with current constraints will result in a fit error."
+    err2 <- "Proceeding with current constraints will result in a fit error."
 
     if ( bounds[1] > 0 ) {
-      msg <- paste("Lower offsets must be negative so that resulting bounds",
-                   "include initial values.", msg2)
-      stop(msg)
+      err <- paste("Lower offsets must be negative so that resulting bounds",
+                   "include initial values.", err2)
+      stop(err)
     }
 
     if ( bounds[2] < 0 ) {
-      msg <- paste("Upper offsets must be positive so that resulting bounds",
-                   "include initial values.", msg2)
-      stop(msg)
+      err <- paste("Upper offsets must be positive so that resulting bounds",
+                   "include initial values.", err2)
+      stop(err)
     }
 
     if ( bounds[1] > bounds[2] ) {
-      msg <- paste("Lower bound must be smaller than upper bound.", msg2)
-      warning(msg)
+      err <- paste("Lower bound must be smaller than upper bound.", err2)
+      warning(err)
     }
 
   }
@@ -1019,8 +1038,8 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
   if (! is.null(nmrdata) ) {
     
     if ( class(nmrdata) != 'NMRData1D' ) {
-      msg <- '"nmrdata" must be a valid NMRData1D object.'
-      stop(msg)
+      err <- '"nmrdata" must be a valid NMRData1D object.'
+      stop(err)
     } else {
       validObject(nmrdata)
     }
@@ -1054,10 +1073,14 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 #' Generate lineshape function
 #' 
 #' This is primarily an internal method that outputs a function (or a tbl_df
-#' data frame of functions), where the resulting function(s) output spectral
-#' intensity data given a vector input of chemical shifts.
+#' data frame of functions), where each function outputs spectral intensity
+#' data given a vector input of chemical shifts.
 #' 
 #' @param object An NMRResonance1D object.
+#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+#'           to ppm. In most cases, it is recommended to set a single default
+#'           value using nmrsession_1d(sf = ...), but an override can be
+#'           provided here.
 #' @param sum.peaks TRUE to add all individual peaks together and output a
 #'                  single function, FALSE to output a data frame of functions
 #'                  that correspond to individual peaks.
@@ -1067,235 +1090,193 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 #' 
 #' @return A function or tbl_df data frame of functions where each function
 #'         outputs spectral intensity data given a vector input of chemical
-#'         shifts.
+#'         shifts. In the latter case, the functions are stored in a list column
+#'         called f.
 #' 
 #' @name f_lineshape
 #' @export
 setGeneric("f_lineshape", 
-  function(object, sum.peaks = TRUE, components = 'r/i', ...) {
+  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
+           components = 'r/i', ...) {
     standardGeneric("f_lineshape")
 })
 
 #' @rdname f_lineshape
 #' @export
 setMethod("f_lineshape", "NMRResonance1D",
-  function(object, sum.peaks = TRUE, components = 'r/i') {
+  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
+           components = 'r/i') {
 
-  # Converting object peak_units to ppm
-  object <- set_peak_units(object, peak.units = 'ppm')
+    # Checking to make sure that sweep frequency is defined
+    err <- '"sf" must be provided as input or set using nmrsession_1d()'
+    if ( is.null(sf) ) stop(err)
 
-  # Performing calculation based on peak.type
-  peak.type <- object@peak_type
+    # Defining which components to return
+    return.r <- grepl('r', tolower(components))
+    return.i <- grepl('i', tolower(components))
 
-  # Extracting values
-  peaks <- as.matrix(object@peaks[, -(1:2)])
+    err <- '"components" must have at least one of either "r" or "i"'
+    if ( return.r && return.i ) f_out <- function(y) {y}
+    else if ( return.r ) f_out <- function(y) {Re(y)}
+    else if ( return.i ) f_out <- function(y) {Im(y)}
+    else stop(err)
 
-  # Define a function for a single set of peakseters
-  if ( peak.type == 'lorenz' ) {
-    f <- function(i, x) {
-      p <- peaks[i, 1]
-      h <- peaks[i, 2]
-      w <- peaks[i, 3]
-      z <- (x - p)/w
-      
-      h*complex(re = 1, im = z)/(1 + z^2)
-    }
-  } else if ( peak.type == 'gauss' ) {
-    f <- function(i, x) {
-      p <- peaks[i, 1]
-      h <- peaks[i, 2]
-      w <- peaks[i, 3]
-      z <- (x - p)/(sqrt(2)*w)
-      
-      h*Faddeeva_w(z)
-    }
-  } else if ( peak.type == 'pvoigt' ) {
-    f <- function(i, x) {
-      p <- peaks[i, 1]
-      lh <- peaks[i, 2]
-      gh <- peaks[i, 3]
-      w <- peaks[i, 4]
-      z <- (x - p)/w
-      
-      lh*complex(re = 1, im = z)/(1 + z^2) + gh*Faddeeva_w(z)
-    }
-  } else if ( peak.type == 'voigt' ) {
-    f <- function(i, x) {
-      p <- peaks[i, 1]
-      h <- peaks[i, 2]
-      lw <- peaks[i, 3]
-      gw <- peaks[i, 4]
-      z <- (x - p + complex(im = lw))/(sqrt(2)*gw)
-      
-      h*Faddeeva_w(z)/Faddeeva_w(complex(im = lw)/(sqrt(2)*gw))
-    }
-  }
+    columns <- c('position', 'width', 'height', 'fraction.gauss')
+    parameters <- as.matrix(object@peaks[, columns])
 
-  # Then wrap the internal function with the ability to apply
-  # over multiple peaks.
-  f_outer <- function(x, i, include.convolution = TRUE) {
+    # Converting peak width to ppm
+    parameters[, 2] <- parameters[, 2]/sf
 
-    # If convolution is required, the weights may need to be adjusted to the
-    # specified x values.
-    nmrdata <- object@nmrdata
-    logic <- include.convolution && 
-             (! is.null(nmrdata) ) &&
-             (length(nmrdata@convolution) > 0)
-
-    if ( logic ) {
-
-      convolution <- nmrdata@convolution
-      processed <- nmrdata@processed
-
-      dx <- abs(mean(diff(processed$direct.shift)))
-      new.dx <-  sort(unique(diff(x)))
-
-      if ( (length(new.dx) > 1) && any(abs(diff(new.dx)) > 1e-10) ) {
-        msg <- paste('Convolution vectors can only be considered for evenly',
-                     'sampled data.')
-        stop(msg, call. = TRUE)
-      } else {
-        new.dx <- abs(mean(new.dx))
+    # If peaks are to be summed, just feed all parameters into the Rcpp function
+    if ( sum.peaks ) {
+      out <- function(x) {
+        y <- .Call('_rnmrfit_lineshape_1d', PACKAGE = 'rnmrfit', x, parameters)
+        f_out(y)
       }
+    } 
+    # Otherwise, generate a tbl_df data frame
+    else {
+      out <- as_tibble(object@peaks[, c('id', 'peak')])
+      parameters <- split(parameters, 1:nrow(parameters))
+      
+      # Generating a list of functions, each with their parameters enclosed
+      functions <- lapply(parameters, function (p) {
+        function(x) {
+          p <- matrix(p, nrow = 1)
+          y <- .Call('_rnmrfit_lineshape_1d', PACKAGE = 'rnmrfit', x, p)
+          f_out(y)
+        }
+      })
 
-      new.n <- round(length(convolution)*new.dx/dx)
-      convolution <- spline(1:length(convolution), convolution, n = new.n)$y
-
-      f_inner <- function(i, x) {
-        out <- convolve(f(i, x), convolution, type = 'open')
-        n.edge <- (length(convolution) - 1)/2
-        index <- (1 + n.edge):(length(x) + n.edge)
-        out[index]
-      }
-    } else {
-      f_inner <- f
+      # Adding functions as a column
+      out$f <- functions
     }
 
-    out.list <- lapply(i, f_inner, x = x)
+    out
+    })
 
-    n.peaks <- length(i)
-    n.points <- length(x)
-    
-    intensity <- unlist(out.list)
-    direct.shift <- rep(x, n.peaks)
 
-    cbind(object@peaks[rep(i, each = n.points), 1:2],
-          direct.shift = direct.shift,
-          intensity = intensity)
-  }
-
-  # Return the function
-  f_outer
-})
 
 #------------------------------------------------------------------------
-#' Calculate lineshape
-#'
-#' Calculate the lineshape associated with each defined peak.
-#'
-#' TO DO.
-#'
-#' @param object An NMRScaffold1D on NMRFit1D object.
+#' Calculate peak lineshape values
+#' 
+#' Calculated peak intensity values over a set of chemical shifts.
+#' 
+#' @param object An NMRResonance1D object.
+#' @param direct.shift Vector of chemical shift data in ppm.
+#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+#'           to ppm. In most cases, it is recommended to set a single default
+#'           value using nmrsession_1d(sf = ...), but an override can be
+#'           provided here.
+#' @param sum.peaks TRUE to add all individual peaks together and output a
+#'                  single set of values, FALSE to output a data frame of values
+#'                  that correspond to individual peaks.
+#' @param components 'r/i' to output both real and imaginary data, 'r' to output
+#'                   only real and 'i' to output only imaginary.
 #' @inheritParams methodEllipse
-#'
-#' @return To DO.
-#'
-#' @name calc_lineshape
+#' 
+#' @return A vector of spectral intensity data or a data frame with columns
+#'         "id", "peak", "direct.shift", and "intensity".
+#' 
+#' @name values
 #' @export
-setGeneric("calc_lineshape", 
-  function(object, ...) {
-    standardGeneric("calc_lineshape")
+setGeneric("values", 
+  function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
+           components = 'r/i', ...) {
+    standardGeneric("values")
 })
 
-#------------------------------------------------------------------------
-#' @rdname calc_lineshape
+#' @rdname values
 #' @export
-setMethod("calc_lineshape", "NMRScaffold1D",
-  function(object, direct.shift = NULL, include.convolution = TRUE) {
+setMethod("values", "NMRResonance1D",
+  function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
+           components = 'r/i') {
 
-  # If direct.shift is NULL check for available data
-  if ( is.null(direct.shift) ) {
-    if (! is.null(object@nmrdata) ) {
-      direct.shift <- object@nmrdata@processed$direct.shift
-    } else {
-      msg <- '"direct.shift" must be provided if "nmrdata" slot is NULL.'
-      stop(msg)
+  # Output depends on whether peaks are summed or not
+  if ( sum.peaks ) {
+    # Get function
+    f <- f_lineshape(object, sf, sum.peaks, components)
+
+    # And apply it to specified chemical shifts
+    f(direct.shift)
+  } 
+  else {
+    # Get data frame of functions
+    d <- f_lineshape(object, sf, sum.peaks, components)
+
+    # Defining function that generates necessary data frame
+    f <- function(g) {
+      data.frame(direct.shift = direct.shift, intensity = g[[1]](direct.shift))
     }
+
+    # And apply it for every peak
+    d %>%
+      group_by(id, peak) %>%
+      do( f(.$f) )
   }
+  })
 
-  # Generating function
-  f <- f_lineshape(object)
 
-  # Calculate all lineshapes
-  n <- nrow(object@peaks)
-
-  # Apply it
-  f(direct.shift, 1:n, include.convolution)
-})
 
 #------------------------------------------------------------------------
-#' Calculate the areas of each peak
-#'
-#' Calculate the analytical area of each peak based on the peak_type.
-#'
-#' @param object An NMRScaffold1D or NMRScaffold2D object.
-#' @param type One of either 'analytical' or 'numerical'. Analytical
-#'             calculation is the default, but numerical calculation using
-#'             integrate() is left for debugging purposes.
+#' Calculate peak areas
+#' 
+#' Calculate total peak areas based on peak parameters.
+#' 
+#' @param object An NMRResonance1D object.
+#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+#'           to ppm. In most cases, it is recommended to set a single default
+#'           value using nmrsession_1d(sf = ...), but an override can be
+#'           provided here.
+#' @param sum.peaks TRUE to add all individual peaks together and output a
+#'                  single area, FALSE to output a data frame of peak area
+#'                  values.
 #' @inheritParams methodEllipse
-#'
-#' @return A data.frame with three columns -- id, peak, and area.
-#'
-#' @name calc_area
+#' 
+#' @return A single overall area or a data frame of areas with columns "id",
+#'         "peak", and "area".
+#' 
+#' @name areas 
 #' @export
-setGeneric("calc_area", 
-  function(object, type = 'analytical', ...) {
-    standardGeneric("calc_area")
+setGeneric("areas", 
+  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
+           components = 'r/i', ...) {
+    standardGeneric("areas")
 })
 
-#------------------------------------------------------------------------
-#' @rdname calc_area
+#' @rdname areas 
 #' @export
-setMethod("calc_area", "NMRScaffold1D",
-  function(object, type = 'analytical') {
+setMethod("areas", "NMRResonance1D",
+  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
+           components = 'r/i') {
 
-  # Performing calculation based on peak.type
-  peak.type <- object@peak_type
-  d <- object@peaks
-
-  if ( type == 'analytical' ) {
-
-    if ( peak.type == 'lorenz' ) {
-      d <- mutate(d, area = pi*width*height)
-    } else if ( peak.type == 'gauss' ) {
-      d <- mutate(d, area = sqrt(2*pi)*width*height)
-    } else if ( peak.type == 'pvoigt' ) {
-      d <- mutate(d, area = width*(pi*l.height + sqrt(pi)*g.height))
-    } else if ( peak.type == 'voigt' ) {
-      d <- mutate(d, area = Re(sqrt(2*pi)*g.width*height/
-                            Faddeeva_w(complex(im = l.width)/(sqrt(2)*g.width))))
+  # Defining area function
+  f <- function(position, width, height, fraction.gauss) {
+    # If fraction is 0, treat as Lorentz
+    if ( fraction.gauss == 0 ) {
+      pi*width*height
     }
-
-  } else if ( type == 'numerical' ) {
-
-    # Generate lineshape function
-    f <- f_lineshape(object, FALSE)
-
-    # Determine how many rows there are
-    n <- nrow(d)
-
-    f_area <- function(i) {
-      integrate(function(x) Re(f(x)), -Inf, Inf, i = i)$value
+    # If fraction is 1, treat as Gauss
+    else if ( fraction.gauss == 1) {
+      sqrt(2*pi)*width*height
     }
-
-    areas <- lapply(1:n, f_area)
-    d$area <- unlist(areas)
+    # Else, proceed as Voigt
+    else {
+      l.width <- width
+      g.width <- width*fraction.gauss/(1 - fraction.gauss)
+      Re(sqrt(2*pi)*g.width*height /
+         Faddeeva_w(complex(im = l.width)/(sqrt(2)*g.width)))
+    }
   }
 
-  # Dropping parameter columns and returning
-  select(d, id, peak, area)
-})
+  # Calculating areas
+  peaks <- object@peaks
+  areas <- peaks %>%
+    group_by(id, peak) %>%
+    summarize(area = f(position, width, height, fraction.gauss)) %>%
+    as.data.frame()
 
-
-
-
+  # Sum if necessary
+  if ( sum.peaks ) sum(areas$area)
+  else areas
+  })

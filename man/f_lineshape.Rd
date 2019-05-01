@@ -6,13 +6,19 @@
 \alias{f_lineshape,NMRResonance1D-method}
 \title{Generate lineshape function}
 \usage{
-f_lineshape(object, sum.peaks = TRUE, components = "r/i", ...)
+f_lineshape(object, sf = nmrsession_1d("sf"), sum.peaks = TRUE,
+  components = "r/i", ...)
 
-\S4method{f_lineshape}{NMRResonance1D}(object, sum.peaks = TRUE,
-  components = "r/i")
+\S4method{f_lineshape}{NMRResonance1D}(object, sf = nmrsession_1d("sf"),
+  sum.peaks = TRUE, components = "r/i")
 }
 \arguments{
 \item{object}{An NMRResonance1D object.}
+
+\item{sf}{Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+to ppm. In most cases, it is recommended to set a single default
+value using nmrsession_1d(sf = ...), but an override can be
+provided here.}
 
 \item{sum.peaks}{TRUE to add all individual peaks together and output a
 single function, FALSE to output a data frame of functions
@@ -24,10 +30,11 @@ only real and 'i' to output only imaginary.}
 \value{
 A function or tbl_df data frame of functions where each function
         outputs spectral intensity data given a vector input of chemical
-        shifts.
+        shifts. In the latter case, the functions are stored in a list column
+        called f.
 }
 \description{
 This is primarily an internal method that outputs a function (or a tbl_df
-data frame of functions), where the resulting function(s) output spectral
-intensity data given a vector input of chemical shifts.
+data frame of functions), where each function outputs spectral intensity
+data given a vector input of chemical shifts.
 }
