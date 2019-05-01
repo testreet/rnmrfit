@@ -1,6 +1,8 @@
 # Definition of a class structure for 1D resonance data.
 
-
+#' @import Rcpp
+#' @useDynLib rnmrfit
+NULL
 
 #==============================================================================>
 #  NMRResonance1D -- peak description 
