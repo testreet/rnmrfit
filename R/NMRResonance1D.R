@@ -16,6 +16,7 @@ NULL
 #' Essentially, this class is used to define coupling relationships to group
 #' individual peaks into resonances.
 #' 
+#' @slot id A name to be used for the object in output data.
 #' @slot peaks A data.frame describing a series of singlets, with one row per
 #'             peak. All peaks are characterized by a position (in ppm), height
 #'             (in relative intensity units), width (in ppm or Hz), and
@@ -35,12 +36,14 @@ NULL
 #' @export
 NMRResonance1D <- setClass("NMRResonance1D",
   slots = c(
+    id = 'character',
     peaks = 'data.frame',
     couplings = 'data.frame',
     couplings.leeway = 'list',
     bounds = 'list'
   ),
   prototype = prototype(
+    id = 'resonance',
     couplings = data.frame(),
     couplings.leeway = list(position = 0, width = 0, area = 0),
     bounds = list(lower = NULL, upper = NULL)
@@ -60,6 +63,7 @@ NMRResonance1D <- setClass("NMRResonance1D",
 #'
 validNMRResonance1D <- function(object) {
 
+  id <- object@id
   peaks <- object@peaks
   couplings <- object@couplings
   couplings.leeway <- object@couplings.leeway
@@ -69,9 +73,16 @@ validNMRResonance1D <- function(object) {
   err <- c()
 
   #---------------------------------------
+  # Checking name
+  if ( length(id) != 1 ) {
+    valid <- FALSE
+    new.err <- '"name" must be a character vector of length 1.'
+    err <- c(err, new.err)
+  }
+
+  #---------------------------------------
   # Checking peak column names
-  valid.columns <- c('resonance', 'peak', 'position', 
-                     'width', 'height', 'fraction.gauss')
+  valid.columns <- c('peak', 'position', 'width', 'height', 'fraction.gauss')
 
   if (! identical(colnames(peaks), valid.columns) ) {
     valid <- FALSE
@@ -84,24 +95,11 @@ validNMRResonance1D <- function(object) {
   # Checking couplings
   if ( nrow(couplings) > 0 ) {
 
-    valid.columns <- c('resonance.1', 'resonance.2', 'peak.1', 'peak.2', 
-                       'position.difference', 'area.ratio')
+    valid.columns <- c('peak.1', 'peak.2', 'position.difference', 'area.ratio')
     if (! identical(colnames(couplings), valid.columns) ) {
       valid <- FALSE
       new.err <- sprintf('"couplings" must have the following columns: %s',
                          paste(valid.columns, collapse = ', '))
-      err <- c(err, new.err)
-    }
-
-    valid.values <- paste(peaks$resonance, peaks$peak)
-    logic1 <- all(paste(couplings$resonance.1, couplings$peak.1) %in% 
-                  valid.values)
-    logic2 <- all(paste(couplings$resonance.2, couplings$peak.2) %in% 
-                  valid.values)
-
-    if (! (logic1 & logic2) ) {
-      valid <- FALSE
-      new.err <- '"couplings" peaks must correspond to existing peaks.'
       err <- c(err, new.err)
     }
   }
@@ -364,9 +362,7 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 
   differences <- d$position[index.2] - d$position[index.1]
   ratios <- d$height[index.2]/d$height[index.1]
-  couplings <- data.frame(resonance.1 = d$resonance[index.1], 
-                          resonance.2 = d$resonance[index.2], 
-                          peak.1 = d$peak[index.1], peak.2 = d$peak[index.2],
+  couplings <- data.frame(peak.1 = d$peak[index.1], peak.2 = d$peak[index.2],
                           position.difference = differences,
                           area.ratio = ratios)
 
@@ -397,8 +393,8 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 #'           from Hz to ppm. In most cases, it is recommended to set a single
 #'           default value using nmrsession_1d(sf = ...), but an override can be
 #'           provided here.
-#' @param name A string specifying resonance name. If left empty, a name is
-#'             automatically generated from the peaks argument.
+#' @param id A string specifying resonance name. If left empty, a name is
+#'           automatically generated from the peaks argument.
 #' @param width Initial estimate of peak width (in Hz). For Voigt lineshapes,
 #'              this value is taken as the Lorentzian component, with the
 #'              Gaussian component calculated from
@@ -424,7 +420,7 @@ enforce_couplings_1d <- function(nmrresonance, peaks = NULL) {
 #' @return An NMRResonance1D object.
 #' 
 #' @export
-nmrresonance_1d <- function(peaks, sf = nmrsession_1d('sf'), name = NULL, 
+nmrresonance_1d <- function(peaks, sf = nmrsession_1d('sf'), id = NULL, 
                             width = 1, fraction.gauss = 0, 
                             position.leeway = 0, area.leeway = 0, 
                             width.leeway = 0) {
@@ -441,9 +437,8 @@ nmrresonance_1d <- function(peaks, sf = nmrsession_1d('sf'), name = NULL,
     add.constraints <- TRUE
 
     # Initializing singlet at chemical shift
-    if ( is.null(name) ) name <- peaks
-    peaks <- data.frame(resonance = name, peak = 1, 
-                        position = coupling$direct.shift,
+    if ( is.null(id) ) id <- peaks
+    peaks <- data.frame(peak = 1, position = coupling$direct.shift,
                         width = width, height = 1, 
                         fraction.gauss = fraction.gauss)
 
@@ -472,9 +467,9 @@ nmrresonance_1d <- function(peaks, sf = nmrsession_1d('sf'), name = NULL,
     add.constraints <- FALSE
     middle <- (max(peaks) + min(peaks))/2 
     range <- paste(min(peaks), '..', max(peaks), sep = '')
-    if ( is.null(name) ) name <- paste(middle, 'm', range)
-    peaks <- data.frame(resonance = name, peak = 1:length(peaks), 
-                        position = peaks, width = peak.width, height = 1, 
+    if ( is.null(id) ) id <- paste(middle, 'm', range)
+    peaks <- data.frame(peak = 1:length(peaks), 
+                        position = peaks, width = width, height = 1, 
                         fraction.gauss = fraction.gauss)
   }
 
@@ -486,7 +481,8 @@ nmrresonance_1d <- function(peaks, sf = nmrsession_1d('sf'), name = NULL,
   couplings.leeway = list(position = position.leeway, width = width.leeway,
                           area = area.leeway)
 
-  nmrresonance = new('NMRResonance1D', peaks = peaks, couplings = couplings, 
+  nmrresonance = new('NMRResonance1D', id = id, peaks = peaks, 
+                                       couplings = couplings, 
                                        couplings.leeway = couplings.leeway)
 
   # And then updating if necessary
@@ -563,11 +559,17 @@ setMethod("show", "NMRResonance1D",
     # Generating infinite bounds if empty
     object <- .initialize_bounds(object)
 
+    id <- object@id
     peaks <- object@peaks
     bounds <- object@bounds
     couplings <- object@couplings
 
     cat('An object of NMRResonance1D class\n\n')
+
+    # ID 
+    cat('Id: ')
+    cat(id)
+    cat('\n\n')
 
     # Peaks
     cat('Peaks:\n\n')
@@ -607,6 +609,39 @@ setMethod("show", "NMRResonance1D",
 
 
 #------------------------------------------------------------------------------
+# Rename
+
+#' @templateVar slot id
+#' @template NMRResonance1D_access
+#' @name id
+#' @export
+setGeneric("id", 
+  function(object, ...) standardGeneric("id"))
+
+#' @rdname id
+#' @export
+setMethod("id", "NMRResonance1D", 
+  function(object) object@id)
+
+#' @templateVar slot id
+#' @template NMRResonance1D_replacement
+#' @name id-set
+#' @export
+setGeneric("id<-", 
+  function(object, value) standardGeneric("id<-"))
+
+#' @rdname id-set
+#' @export
+setReplaceMethod("id", "NMRResonance1D",
+  function(object, value) {
+    object@id <- value
+    validObject(object)
+    object 
+  })
+
+
+
+#------------------------------------------------------------------------------
 # Peaks
 
 #' @templateVar slot peaks
@@ -619,7 +654,10 @@ setGeneric("peaks",
 #' @rdname peaks
 #' @export
 setMethod("peaks", "NMRResonance1D", 
-  function(object) object@peaks)
+  function(object, include.id = FALSE) {
+    if ( include.id ) cbind(resonance = object@id, object@peaks)
+    else object
+  })
 
 #' @templateVar slot peaks
 #' @template NMRResonance1D_replacement
@@ -1087,6 +1125,8 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 #' @param sum.peaks TRUE to add all individual peaks together and output a
 #'                  single function, FALSE to output a data frame of functions
 #'                  that correspond to individual peaks.
+#' @param include.id TRUE to include id as "resonance" column if outputting data
+#'                   frame.
 #' @param components 'r/i' to output both real and imaginary data, 'r' to output
 #'                   only real and 'i' to output only imaginary.
 #' @inheritParams methodEllipse
@@ -1100,7 +1140,7 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 #' @export
 setGeneric("f_lineshape", 
   function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i', ...) {
+           include.id = TRUE, components = 'r/i', ...) {
     standardGeneric("f_lineshape")
 })
 
@@ -1139,7 +1179,10 @@ setMethod("f_lineshape", "NMRResonance1D",
     } 
     # Otherwise, generate a tbl_df data frame
     else {
-      out <- as_tibble(object@peaks[, c('resonance', 'peak')])
+      if ( include.id ) out <- tibble(resonance = object@id,
+                                      peak = object@peaks$peak)
+      else out <- tibble(peak = object@peaks$peak)
+
       parameters <- split(parameters, 1:nrow(parameters))
       
       # Generating a list of functions, each with their parameters enclosed
@@ -1174,18 +1217,20 @@ setMethod("f_lineshape", "NMRResonance1D",
 #' @param sum.peaks TRUE to add all individual peaks together and output a
 #'                  single set of values, FALSE to output a data frame of values
 #'                  that correspond to individual peaks.
+#' @param include.id TRUE to include id as "resonance" column if outputting data
+#'                   frame.
 #' @param components 'r/i' to output both real and imaginary data, 'r' to output
 #'                   only real and 'i' to output only imaginary.
 #' @inheritParams methodEllipse
 #' 
 #' @return A vector of spectral intensity data or a data frame with columns
-#'         "resonance", "peak", "direct.shift", and "intensity".
+#'         "resonance" (optional), "peak", "direct.shift", and "intensity".
 #' 
 #' @name values
 #' @export
 setGeneric("values", 
   function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i', ...) {
+           include.id, components = 'r/i', ...) {
     standardGeneric("values")
 })
 
@@ -1205,7 +1250,7 @@ setMethod("values", "NMRResonance1D",
   } 
   else {
     # Get data frame of functions
-    d <- f_lineshape(object, sf, sum.peaks, components)
+    d <- f_lineshape(object, sf, sum.peaks, include.id, components)
 
     # Defining function that generates necessary data frame
     f <- function(g) {
@@ -1213,9 +1258,7 @@ setMethod("values", "NMRResonance1D",
     }
 
     # And apply it for every peak
-    d %>%
-      group_by(resonance, peak) %>%
-      do( f(.$f) )
+    group_by_all(d) %>% do( f(.$f) )
   }
   })
 
@@ -1234,16 +1277,18 @@ setMethod("values", "NMRResonance1D",
 #' @param sum.peaks TRUE to add all individual peaks together and output a
 #'                  single area, FALSE to output a data frame of peak area
 #'                  values.
+#' @param include.id TRUE to include id as "resonance" column if outputting data
+#'                   frame.
 #' @inheritParams methodEllipse
 #' 
 #' @return A single overall area or a data frame of areas with columns
-#'         "resonance", "peak", and "area".
+#'         "resonance" (optional), "peak", and "area".
 #' 
 #' @name areas
 #' @export
 setGeneric("areas", 
   function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i', ...) {
+           include.id = TRUE, components = 'r/i', ...) {
     standardGeneric("areas")
 })
 
@@ -1273,8 +1318,12 @@ setMethod("areas", "NMRResonance1D",
   }
 
   # Calculating areas
-  peaks <- object@peaks
-  areas <- peaks %>%
+  areas <- peaks(object, include.id)
+
+  if ( include.id ) areas <- areas %>% group_by(resonance, peak)
+  else areas <- areas %>% group_by(peak)
+
+  areas <- areas %>%
     group_by(resonance, peak) %>%
     summarize(area = f(position, width, height, fraction.gauss)) %>%
     as.data.frame()

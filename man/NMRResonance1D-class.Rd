@@ -12,6 +12,8 @@ individual peaks into resonances.
 \section{Slots}{
 
 \describe{
+\item{\code{id}}{A name to be used for the object in output data.}
+
 \item{\code{peaks}}{A data.frame describing a series of singlets, with one row per
 peak. All peaks are characterized by a position (in ppm), height
 (in relative intensity units), width (in ppm or Hz), and

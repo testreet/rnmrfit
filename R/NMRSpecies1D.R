@@ -27,11 +27,13 @@
 #' @export
 NMRSpecies1D <- setClass("NMRSpecies1D",
   slots = c(
+    id = 'character',
     resonances = 'list',
     connections = 'data.frame',
-    connections.leeway = 'numeric',
+    connections.leeway = 'numeric'
   ),
   prototype = prototype(
+    id = 'species',
     resonances = list(),
     connections = data.frame(),
     connections.leeway = 0
@@ -58,6 +60,14 @@ validNMRSpecies1D <- function(object) {
   err <- c()
 
   #---------------------------------------
+  # Checking name
+  if ( length(id) != 1 ) {
+    valid <- FALSE
+    new.err <- '"name" must be a character vector of length 1.'
+    err <- c(err, new.err)
+  }
+
+  #---------------------------------------
   # Checking that all resonance list items are valid
   for ( resonance in resonances ) {
     logic1 <- class(resonance) != 'NMRResonance1D'
@@ -75,23 +85,13 @@ validNMRSpecies1D <- function(object) {
   if ( nrow(connections) > 0 ) {
 
     valid.columns <- c('resonance.1', 'resonance.2', 'area.ratio')
-    if (! identical(colnames(couplings), valid.columns) ) {
+    if (! identical(colnames(connections), valid.columns) ) {
       valid <- FALSE
       new.err <- sprintf('"connections" must have the following columns: %s',
                          paste(valid.columns, collapse = ', '))
       err <- c(err, new.err)
     }
 
-    valid.values <- names(resonances) 
-    logic1 <- all(connections$resonance.1 %in% valid.values)
-    logic2 <- all(connections$resonance.2 %in% valid.values)
-
-    if (! (logic1 & logic2) ) {
-      valid <- FALSE
-      new.err <- paste('"connections" resonances must correspond to named',
-                       'elements of "resonances" list.')
-      err <- c(err, new.err)
-    }
   }
 
   #---------------------------------------
@@ -122,89 +122,97 @@ setValidity("NMRSpecies1D", validNMRSpecies1D)
 #'                   character/numeric vectors that can be converted to
 #'                   NMRResonance1D objects. See ?nmrresonance_1d for more
 #'                   details about this conversion. If list elements are named,
-#'                   these names will be use to replace resonance names.
+#'                   these names will be use to replace resonance ids.
 #' @param areas A vector of areas corresponding to the expected areas of the
 #'              resonances. Set to NULL by default, signifying no fixed
 #'              constraings.
-#' @param name A string specifying species name. If left empty, a name is
-#'             automatically generated from the resonance names.
+#' @param id A string specifying species name. If left empty, a name is
+#'           automatically generated from the resonance names.
 #' @param connections.leeway A value specifying how tightly enforced the
 #'                           connection constraints on resonance areas should
 #'                           be. E.g. a value of = 0 specifies that the area
 #'                           ratios are exact, whereas 0.1 specifies that the
 #'                           areas of the resonances may differ by +/- 10
 #'                           percent from the specified ratios.
+#' @param ... Options passed to nmrresonance_1d if resonances are being
+#'            converted from character/numeric vectors. See ?nmrresonance_1d for
+#'            more details.
 #' 
 #' @return An NMRSpecies1D object.
 #' 
 #' @export
-nmrspecies_1d <- function(resonances, areas = NULL, name = NULL, 
-                          connections.leeway = 0) {
+nmrspecies_1d <- function(resonances, areas = NULL, id = NULL, 
+                          connections.leeway = 0, ...) {
 
   #---------------------------------------
-  # Building peak list
+  # Generating list of resonances
+  resonances.list <- list()
 
-  # Couplings are not added in every case
-  add.couplings <- FALSE
+  for (i in 1:length(resonances)) {
 
-  # If peaks is a character, parse coupling information
-  if ( is.character(peaks) ) {
-    coupling <- parse_peaks_1d(peaks)
-    add.constraints <- TRUE
+    resonance <- resonances[[i]]
 
-    # Initializing singlet at chemical shift
-    if ( is.null(name) ) name <- peaks
-    peaks <- data.frame(resonance = name, peak = 1, 
-                        position = coupling$direct.shift,
-                        width = width, height = 1, 
-                        fraction.gauss = fraction.gauss)
-
-    # If there is splitting to do, convert constants from Hz to ppm
-    if ( any(coupling$number > 1) ) {
-
-      # Checking to make sure that sweep frequency is defined
-      err <- '"sf" must be provided as input or set using nmrsession_1d()'
-      if ( is.null(sf) ) stop(err)
-
-      # Converting coupling constant from Hz to ppm
-      coupling$constant <- coupling$constant/sf
-
+    if ( class(resonance) == 'NMRSpecies1D' ) {
+      err <- paste("An NMRSpecies1D can't be constructed from other",
+                   "NMRSpecies1D objects. Use resonances() to first extract",
+                   "the resonance list before creating a new object.")
+      stop(err)
     }
-
-    # Looping through the coupling to split the specified peaks
-    for ( i in 1:length(coupling$number) ) {
-      peaks <- split_peaks_1d(peaks, coupling$number[i], coupling$constant[i])
+    # If the object is already an NMRResonance1D object, add it directly
+    else if ( class(resonance) == 'NMRResonance1D' ) {
+      resonances.list <- c(resonances.list, resonance)
     }
-
-    # Set flag to add couplings later
-    add.couplings <- TRUE
+    # Otherwise, feed it into the nmrresonance_1d constructor
+    else {
+      resonances.list <- c(resonances.list, nmrresonance_1d(resonance, ...))
+    }
+        
+    # Modifying id if provided
+    resonance.id <- names(resonances)[i]
+    if (! is.null(resonance.id) ) id(resonances.list[[i]]) <- resonance.id
   }
-  # Otherwise, build peaks directly from singlets
+
+  #---------------------------------------
+  # Defining connections if areas provided
+
+  # Fetching resonance ids from list
+  valid.ids <- unlist(lapply(resonances.list, function(o) o@id))
+
+  if (! is.null(areas) ) {
+    # Checking that areas correspond to resonances
+    err <- paste('Either "areas" vector must have names or the length of',
+                 '"areas" vector must match length of resonances.')
+    if (! is.null(names(areas)) ) ids <- names(areas)
+    else if ( length(areas) == length(valid.ids) ) ids <- valid.ids
+    else stop(err) 
+
+    # Checking that area names are valid
+    err <- 'Names of "areas" vector must be valid resonance ids.'
+    if ( any(! ids %in% valid.ids) ) stop(err)
+
+    # Checking length
+    err <- '"areas" vector must be of length 2 or more to add constraints.'
+    if ( length(ids) < 2 ) stop(err)
+
+    # Generating connections data frame
+    n <- length(areas)
+    index.1 <- 1:(n - 1)
+    index.2 <- 2:n
+    connections <- data.frame(resonance.1 = ids[index.1], 
+                              resonance.2 = ids[index.2],
+                              area.ratio = areas[index.2]/areas[index.1])
+    rownames(connections) <- 1:nrow(connections) 
+  } 
   else {
-    add.constraints <- FALSE
-    middle <- (max(peaks) + min(peaks))/2 
-    range <- paste(min(peaks), '..', max(peaks), sep = '')
-    if ( is.null(name) ) name <- paste(middle, 'm', range)
-    peaks <- data.frame(resonance = name, peak = 1:length(peaks), 
-                        position = peaks, width = peak.width, height = 1, 
-                        fraction.gauss = fraction.gauss)
+    connections = data.frame()
   }
 
-  #---------------------------------------
-  # Adding coupling definitions
+  # Generating id if it doesn't exist
+  if ( is.null(id) ) id <- paste(valid.ids, collapse = '-')
 
-  # Starting with blanks first
-  couplings <- data.frame()
-  couplings.leeway = list(position = position.leeway, width = width.leeway,
-                          area = area.leeway)
-
-  nmrresonance = new('NMRSpecies1D', peaks = peaks, couplings = couplings, 
-                                       couplings.leeway = couplings.leeway)
-
-  # And then updating if necessary
-  if ( add.couplings ) enforce_couplings_1d(nmrresonance)
-  else nmrresonance
-
+  new('NMRSpecies1D', id = id, resonances = resonances.list, 
+                      connections = connections, 
+                      connections.leeway = connections.leeway)
 }
 
 
@@ -212,54 +220,6 @@ nmrspecies_1d <- function(resonances, areas = NULL, name = NULL,
 #==============================================================================>
 #  Display function
 #==============================================================================>
-
-
-
-#------------------------------------------------------------------------------
-#' Initialize empty set of bounds
-#' 
-#' Initalize lower and upper bounds with the correct dimensions, but set to
-#' -Inf and +Inf respectively
-#' 
-#' @param object NMRSpecies1D object
-#' @param overwrite TRUE to overwrite existing bounds (to reset them), FALSE to
-#'                  quietly ignore any existing bounds.
-#' @inheritParams methodEllipse
-#' 
-#' @return Modified NMRResonacen1D object.
-#' @name initialize_bounds
-setGeneric(".initialize_bounds", 
-           function(object, overwrite = FALSE, ...) {
-             standardGeneric(".initialize_bounds")
-           })
-
-#' @rdname initialize_bounds
-setMethod(".initialize_bounds", "NMRSpecies1D", 
-  function(object, overwrite = FALSE) {
-
-    # Handling bounds if they exist
-    bounds <- list(lower = object@bounds$lower, 
-                   upper = object@bounds$upper)
-
-    # Selecting default values
-    values <- list(lower = -Inf, upper = +Inf)
-    columns <- c('position', 'width', 'height', 'fraction.gauss')
-
-    for ( name in names(bounds) ) {
-      if ( is.null(bounds[[name]]) || overwrite ) {
-
-        peaks <- object@peaks
-        peaks[ , columns] <- values[[name]]
-
-        bounds[[name]] <- peaks
-      }
-    }
-
-    object@bounds$lower <- bounds$lower
-    object@bounds$upper <- bounds$upper
-
-    object
-  })
 
 
 
@@ -321,24 +281,10 @@ setMethod("show", "NMRSpecies1D",
 #------------------------------------------------------------------------------
 # Peaks
 
-#' @templateVar slot peaks
-#' @template NMRSpecies1D_access
-#' @name peaks
-#' @export
-setGeneric("peaks", 
-  function(object, ...) standardGeneric("peaks"))
-
 #' @rdname peaks
 #' @export
 setMethod("peaks", "NMRSpecies1D", 
   function(object) object@peaks)
-
-#' @templateVar slot peaks
-#' @template NMRSpecies1D_replacement
-#' @name peaks-set
-#' @export
-setGeneric("peaks<-", 
-  function(object, value) standardGeneric("peaks<-"))
 
 #' @rdname peaks-set
 #' @export
@@ -354,24 +300,10 @@ setReplaceMethod("peaks", "NMRSpecies1D",
 #------------------------------------------------------------------------------
 # Couplings
 
-#' @templateVar slot couplings
-#' @template NMRSpecies1D_access
-#' @name couplings
-#' @export
-setGeneric("couplings", 
-  function(object, ...) standardGeneric("couplings"))
-
 #' @rdname couplings
 #' @export
 setMethod("couplings", "NMRSpecies1D", 
   function(object) object@couplings)
-
-#' @templateVar slot couplings
-#' @template NMRSpecies1D_replacement
-#' @name couplings-set
-#' @export
-setGeneric("couplings<-", 
-  function(object, value) standardGeneric("couplings<-"))
 
 #' @rdname couplings-set
 #' @export
@@ -387,24 +319,10 @@ setReplaceMethod("couplings", "NMRSpecies1D",
 #------------------------------------------------------------------------------
 # Bounds
 
-#' @templateVar slot bounds
-#' @template NMRSpecies1D_access
-#' @name bounds
-#' @export
-setGeneric("bounds", 
-  function(object, ...) standardGeneric("bounds"))
-
 #' @rdname bounds
 #' @export
 setMethod("bounds", "NMRSpecies1D", 
   function(object) object@bounds)
-
-#' @templateVar slot bounds
-#' @template NMRSpecies1D_replacement
-#' @name bounds-set
-#' @export
-setGeneric("bounds<-", 
-  function(object, value) standardGeneric("bounds<-"))
 
 #' @rdname bounds-set
 #' @export
@@ -422,57 +340,7 @@ setReplaceMethod("bounds", "NMRSpecies1D",
 #==============================================================================>
 
 
-
 #------------------------------------------------------------------------------
-#' Set general bounds of an NMRSpecies1D object
-#' 
-#' This function provides a convenience method for generating bounds using a
-#' simple set of lower and upper constraints on basic peak parameters such as
-#' position, height, width, fraction.gauss. The term "general" refers to the
-#' fact that the same bounds are applied to each and every peak, regardless of
-#' current parameter values. These bounds can be normalized to a set of data
-#' using the optional nmrdata argument.
-#' 
-#' In practice, general bounds are primarily useful for placing a hard
-#' constraint on peak widths and preventing negative heights. Values of 0 for
-#' widths and height can also cause issues during optimization, so simple
-#' general bounds can be used to prevent errors.
-#' 
-#' @param object An NMRSpecies1D object.
-#' @param position A vector of two elements corresponding to a lower and upper
-#'                 bound for peak position. If nmrdata is provided, 0
-#'                 corresponds to the leftmost range of the data and 1 to the
-#'                 rightmost. Otherwise, the units are in ppm.
-#' @param height A vector of two elements corresponding to a lower and upper
-#'               bound for peak height. If nmrdata is provided, 0 corresponds to
-#'               the lowest value of spectral intensity and 1 to the largest.
-#'               Otherwise, the units correspond to arbitrary spectral intensity
-#'               values.
-#' @param width A vector of two elements corresponding to a lower and upper
-#'              bound for peak width in Hz. If nmrdata is provided, values are
-#'              taken as fraction of the general data range. So 0.1 would
-#'              correspond to a nominal peak width that covers a tenth of the
-#'              general data range.
-#' @param fraction.gauss A vector of two elements corresponding to a lower and
-#'                       upper bound for the Gaussian fraction of the peak. This
-#'                       can be set to c(0, 0) to force Lorentzian peaks. Any
-#'                       values smaller than 0 will be treated as 0 and any
-#'                       values greater than 1 will be treated as 1.
-#' @param nmrdata An optional NMRData1D object that can serve as a reference
-#'                point for the bounds.
-#' @param widen FALSE to prevent new bounds from widening existing bounds.
-#' @inheritParams methodEllipse
-#' 
-#' @return A new NMRSpecies1D object with modified bounds.
-#' 
-#' @name set_general_bounds
-#' @export
-setGeneric("set_general_bounds", 
-  function(object, position = NULL, height = NULL, width = NULL, 
-           fraction.gauss = NULL, nmrdata = NULL, widen = FALSE, ...) {
-    standardGeneric("set_general_bounds")
-  })
-
 #' @rdname set_general_bounds
 #' @export
 setMethod("set_general_bounds", "NMRSpecies1D",
@@ -566,49 +434,6 @@ setMethod("set_general_bounds", "NMRSpecies1D",
 
 
 #------------------------------------------------------------------------------
-#' Set offset bounds of an NMRSpecies1D object
-#' 
-#' This function provides a convenience method for generating bounds using a
-#' simple set of lower and upper constraints on basic peak parameters such as
-#' position, height, width, fraction.gauss. The term "offset" refers to the
-#' fact that bounds are applied as an offset to current values of the
-#' parameters. These bounds can be expressed in absolute (e.g. -0.1 and +0.1
-#' ppm) or relative (e.g. -1 percent and +1 percent) terms.
-#' 
-#' In practice, offset bounds are primarily useful for preventing peak
-#' positions from drifting too much from initial guesses and for fine-tuning a
-#' fit once an initial optimization is performed. It is not recommended to use
-#' strict offset bounds based on rough initial parameter guesses.
-#' 
-#' @param object An NMRSpecies1D object.
-#' @param position A vector of two elements to be added to current peak
-#'                 positions to generate a set of lower and upper bounds. If
-#'                 relative is true, the values are treated as fractions to be
-#'                 multipled by the current peak position before addition.
-#'                 fraction of the current position.
-#' @param height A vector of two elements to be added to current peak heights to
-#'               generate a set of lower and upper bounds. If relative is true,
-#'               the values are treated as fractions to be multipled by the
-#'               current peak heights before addition.
-#' @param width A vector of two elements to be added to current peak widths to
-#'              generate a set of lower and upper bounds. If relative is true,
-#'              the values are treated as fractions to be multipled by the
-#'              current peak heights before addition.
-#' @param relative TRUE to treat values as relative fractions, FALSE to apply
-#'                 them directly.
-#' @param widen FALSE to prevent new bounds from widening existing bounds.
-#' @inheritParams methodEllipse
-#' 
-#' @return A new NMRSpecies1D object with modified bounds.
-#' 
-#' @name set_offset_bounds
-#' @export
-setGeneric("set_offset_bounds", 
-  function(object, position = NULL, height = NULL, width = NULL, 
-           relative = FALSE, widen = FALSE, ...) {
-    standardGeneric("set_offset_bounds")
-  })
-
 #' @rdname set_offset_bounds
 #' @export
 setMethod("set_offset_bounds", "NMRSpecies1D",
@@ -696,39 +521,6 @@ setMethod("set_offset_bounds", "NMRSpecies1D",
 
 
 #------------------------------------------------------------------------------
-#' Set conservative bounds on an NMRSpecies1D object
-#' 
-#' A convenience function that sets reasonable bounds on the fit. These bounds
-#' are assumed to be widely applicable to most simple NMR data. Each set of
-#' bounds can be turned on or off as necessary. A slightly better set of bounds
-#' can be selected if a reference NMRData1D object is provided.
-#' 
-#' @param object An NMRSpecies object.
-#' @param position Without reference data, position is limited to plus or minus
-#'                 0.1 ppm. With reference data, the position of the peaks is
-#'                 forced inside the domain of the data. FALSE to disable.
-#' @param height Without reference data, height is set to strictly positive.
-#'               With reference data, height is also limited to no more than 150
-#'               percent of the maximum peak value. FALSE to disable.
-#' @param width Without reference data, minimum peak width is set to almost, but
-#'              not quite 0 Hz (1e-3 Hz) and a maximum peak width of 3 Hz. With
-#'              reference data, peak width is prevented from being more than 20
-#'              percent of the data range.  FALSE to disable.
-#' @param nmrdata An optional NMRData1D object that can serve as a reference
-#'                point for the bounds.
-#' @param widen FALSE to prevent new bounds from widening existing bounds.
-#' @inheritParams methodEllipse
-#' 
-#' @return A new NMRSpecies1D object with modified bounds.
-#' 
-#' @name set_conservative_bounds
-#' @export
-setGeneric("set_conservative_bounds", 
-  function(object, position = TRUE, height = TRUE, width = TRUE,
-           nmrdata = NULL, widen = FALSE, ...) {
-    standardGeneric("set_conservative_bounds")
-})
-
 #' @rdname set_conservative_bounds
 #' @export
 setMethod("set_conservative_bounds", "NMRSpecies1D",
@@ -785,37 +577,6 @@ setMethod("set_conservative_bounds", "NMRSpecies1D",
 
 
 #------------------------------------------------------------------------
-#' Generate lineshape function
-#' 
-#' This is primarily an internal method that outputs a function (or a tbl_df
-#' data frame of functions), where each function outputs spectral intensity
-#' data given a vector input of chemical shifts.
-#' 
-#' @param object An NMRSpecies1D object.
-#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
-#'           to ppm. In most cases, it is recommended to set a single default
-#'           value using nmrsession_1d(sf = ...), but an override can be
-#'           provided here.
-#' @param sum.peaks TRUE to add all individual peaks together and output a
-#'                  single function, FALSE to output a data frame of functions
-#'                  that correspond to individual peaks.
-#' @param components 'r/i' to output both real and imaginary data, 'r' to output
-#'                   only real and 'i' to output only imaginary.
-#' @inheritParams methodEllipse
-#' 
-#' @return A function or tbl_df data frame of functions where each function
-#'         outputs spectral intensity data given a vector input of chemical
-#'         shifts. In the latter case, the functions are stored in a list column
-#'         called f.
-#' 
-#' @name f_lineshape
-#' @export
-setGeneric("f_lineshape", 
-  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i', ...) {
-    standardGeneric("f_lineshape")
-})
-
 #' @rdname f_lineshape
 #' @export
 setMethod("f_lineshape", "NMRSpecies1D",
@@ -873,34 +634,6 @@ setMethod("f_lineshape", "NMRSpecies1D",
 
 
 #------------------------------------------------------------------------
-#' Calculate peak lineshape values
-#' 
-#' Calculated peak intensity values over a set of chemical shifts.
-#' 
-#' @param object An NMRSpecies1D object.
-#' @param direct.shift Vector of chemical shift data in ppm.
-#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
-#'           to ppm. In most cases, it is recommended to set a single default
-#'           value using nmrsession_1d(sf = ...), but an override can be
-#'           provided here.
-#' @param sum.peaks TRUE to add all individual peaks together and output a
-#'                  single set of values, FALSE to output a data frame of values
-#'                  that correspond to individual peaks.
-#' @param components 'r/i' to output both real and imaginary data, 'r' to output
-#'                   only real and 'i' to output only imaginary.
-#' @inheritParams methodEllipse
-#' 
-#' @return A vector of spectral intensity data or a data frame with columns
-#'         "resonance", "peak", "direct.shift", and "intensity".
-#' 
-#' @name values
-#' @export
-setGeneric("values", 
-  function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i', ...) {
-    standardGeneric("values")
-})
-
 #' @rdname values
 #' @export
 setMethod("values", "NMRSpecies1D",
@@ -934,31 +667,6 @@ setMethod("values", "NMRSpecies1D",
 
 
 #------------------------------------------------------------------------
-#' Calculate peak areas
-#' 
-#' Calculate total peak areas based on peak parameters.
-#' 
-#' @param object An NMRSpecies1D object.
-#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
-#'           to ppm. In most cases, it is recommended to set a single default
-#'           value using nmrsession_1d(sf = ...), but an override can be
-#'           provided here.
-#' @param sum.peaks TRUE to add all individual peaks together and output a
-#'                  single area, FALSE to output a data frame of peak area
-#'                  values.
-#' @inheritParams methodEllipse
-#' 
-#' @return A single overall area or a data frame of areas with columns
-#'         "resonance", "peak", and "area".
-#' 
-#' @name areas
-#' @export
-setGeneric("areas", 
-  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i', ...) {
-    standardGeneric("areas")
-})
-
 #' @rdname areas 
 #' @export
 setMethod("areas", "NMRSpecies1D",
