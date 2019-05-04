@@ -5,20 +5,23 @@
 \alias{peaks}
 \alias{peaks,NMRResonance1D-method}
 \alias{peaks,NMRSpecies1D-method}
-\title{Access the "peaks" of an NMRResonance1D object}
+\title{Get object peaks}
 \usage{
-peaks(object, ...)
+peaks(object, include.id = FALSE, ...)
 
 \S4method{peaks}{NMRResonance1D}(object, include.id = FALSE)
 
 \S4method{peaks}{NMRSpecies1D}(object, include.id = FALSE)
 }
 \arguments{
-\item{object}{An NMRResonance1D.}
+\item{object}{An NMRResonance1D or NMRSpecies1D object.}
+
+\item{include.id}{TRUE to return a column of resonance or species ids.}
 
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "peaks" of an NMRResonance1D
-object.
+Generic convenience method to access the peak definitions of an
+NMRResonance1D object. If used on an NMRSpecies1D object, the function
+combines the peaks data frames of component resonances.
 }

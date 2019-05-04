@@ -5,20 +5,23 @@
 \alias{couplings}
 \alias{couplings,NMRResonance1D-method}
 \alias{couplings,NMRSpecies1D-method}
-\title{Access the "couplings" of an NMRResonance1D object}
+\title{Get object couplings}
 \usage{
-couplings(object, ...)
+couplings(object, include.id = FALSE, ...)
 
-\S4method{couplings}{NMRResonance1D}(object)
+\S4method{couplings}{NMRResonance1D}(object, include.id = FALSE)
 
-\S4method{couplings}{NMRSpecies1D}(object)
+\S4method{couplings}{NMRSpecies1D}(object, include.id = FALSE)
 }
 \arguments{
-\item{object}{An NMRResonance1D.}
+\item{object}{An NMRResonance1D or NMRSpecies1D object.}
+
+\item{include.id}{TRUE to return a column of resonance or species ids.}
 
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "couplings" of an NMRResonance1D
-object.
+Generic convenience method to access the coupling definitions of an
+NMRResonance1D object. If used on an NMRSpecies1D object, the function
+combines the couplings data frames of component resonances.
 }

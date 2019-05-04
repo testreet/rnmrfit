@@ -7,18 +7,16 @@
 \alias{set_conservative_bounds,NMRSpecies1D-method}
 \title{Set conservative bounds on an NMRResonance1D object}
 \usage{
-set_conservative_bounds(object, position = TRUE, height = TRUE,
-  width = TRUE, nmrdata = NULL, widen = FALSE, ...)
+set_conservative_bounds(object, ...)
 
 \S4method{set_conservative_bounds}{NMRResonance1D}(object,
   position = TRUE, height = TRUE, width = TRUE, nmrdata = NULL,
   widen = FALSE)
 
-\S4method{set_conservative_bounds}{NMRSpecies1D}(object, position = TRUE,
-  height = TRUE, width = TRUE, nmrdata = NULL, widen = FALSE)
+\S4method{set_conservative_bounds}{NMRSpecies1D}(object, ...)
 }
 \arguments{
-\item{object}{An NMRResonance object.}
+\item{object}{An NMRResonance1D or an NMRSpecies1D object.}
 
 \item{position}{Without reference data, position is limited to plus or minus
 0.1 ppm. With reference data, the position of the peaks is
@@ -45,5 +43,7 @@ A new NMRResonance1D object with modified bounds.
 A convenience function that sets reasonable bounds on the fit. These bounds
 are assumed to be widely applicable to most simple NMR data. Each set of
 bounds can be turned on or off as necessary. A slightly better set of bounds
-can be selected if a reference NMRData1D object is provided.
+can be selected if a reference NMRData1D object is provided. If applied to
+an NMRSpecies1D object, the same offset bounds are propogated to every
+resonance.
 }

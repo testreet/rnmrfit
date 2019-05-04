@@ -232,12 +232,10 @@ nmrspecies_1d <- function(resonances, areas = NULL, id = NULL,
 setMethod("show", "NMRSpecies1D", 
   function(object) {
 
-    # Generating infinite bounds if empty
-    object <- .initialize_bounds(object)
-
-    peaks <- object@peaks
-    bounds <- object@bounds
-    couplings <- object@couplings
+    # Generating compiled data frames
+    peaks <- peaks(object)
+    bounds <- bounds(object)
+    couplings <- couplings(object)
 
     cat('An object of NMRSpecies1D class\n\n')
 
@@ -319,15 +317,12 @@ setMethod("peaks", "NMRSpecies1D",
 #' @rdname couplings
 #' @export
 setMethod("couplings", "NMRSpecies1D", 
-  function(object) object@couplings)
-
-#' @rdname couplings-set
-#' @export
-setReplaceMethod("couplings", "NMRSpecies1D",
-  function(object, value) {
-    object@couplings <- value
-    validObject(object)
-    object 
+  function(object, include.id = FALSE) {
+    couplings.list <- lapply(object@resonances, couplings, include.id = TRUE)
+    couplings <- do.call(rbind, couplings.list)
+    if ( include.id ) cbind(species.1 = object@id, species.2 = object@id, 
+                            couplings)
+    else couplings
   })
 
 
@@ -338,15 +333,20 @@ setReplaceMethod("couplings", "NMRSpecies1D",
 #' @rdname bounds
 #' @export
 setMethod("bounds", "NMRSpecies1D", 
-  function(object) object@bounds)
+  function(object, include.id = FALSE) {
+    f <- function(o, sublist) bounds(o, include.id = TRUE)[[sublist]]
+    lower.list <- lapply(object@resonances, f, sublist = 'lower')
+    upper.list <- lapply(object@resonances, f, sublist = 'upper')
 
-#' @rdname bounds-set
-#' @export
-setReplaceMethod("bounds", "NMRSpecies1D",
-  function(object, value) {
-    object@bounds <- value
-    validObject(object)
-    object 
+    lower <- do.call(rbind, lower.list)
+    upper <- do.call(rbind, upper.list)
+
+    if ( include.id ) {
+      lower <- cbind(species = object@id, lower)
+      upper <- cbind(species = object@id, upper)
+    }
+
+    list(lower = lower, upper = upper)
   })
 
 
@@ -360,92 +360,10 @@ setReplaceMethod("bounds", "NMRSpecies1D",
 #' @rdname set_general_bounds
 #' @export
 setMethod("set_general_bounds", "NMRSpecies1D",
-  function(object, position = NULL, height = NULL, width = NULL, 
-           nmrdata = NULL, widen = FALSE, ...) {
-
-  # Initializing bounds
-  object <- .initialize_bounds(object)
-  lower <- object@bounds$lower
-  upper <- object@bounds$upper
-
-  #---------------------------------------
-  # Scaling all bounds if nmrdata has been provided
-  if (! is.null(nmrdata) ) {
-
-    if ( class(nmrdata) != 'NMRData1D' ) {
-      err <- '"nmrdata" must be a valid NMRData1D object.'
-      stop(err)
-    }
-    else {
-      validObject(nmrdata)
-    }
-
-    processed <- nmrdata@processed
-    y.range <- range(Re(processed$intensity))
-    x.range <- range(processed$direct.shift)
-
-    position <- position * x.range
-    height <- height * y.range
-
-    sfo1 <- get_parameter(nmrdata, 'sfo1', 'procs')
-    width <- width * (x.range[2] - x.range[1]) * sfo1
-  }
-
-  #---------------------------------------
-  # Defining a bound check function
-  .check_bounds <- function(bounds) {
-
-    if ( length(bounds) != 2 ) {
-      err <- paste("All bounds must be vectors of two elements consisting",
-                   "of a lower and upper bound.")
-      stop(err)
-    }
-
-    if ( bounds[1] > bounds[2] ) {
-      err <- paste("Lower bound must be smaller than upper bound.",
-                   "Proceeding with current constraints will result in a",
-                   "fit error.")
-      warning(err)
-    }
-
-  }
-
-  #---------------------------------------
-  # Creating a list of bounds to loop through each in term
-  bounds = list(position = position, height = height, width = width,
-                fraction.gauss = fraction.gauss)
-
-  for ( parameter in names(bounds) ) {
-    if ( length(bounds[[parameter]]) > 0 ) {
-      .check_bounds(bounds[[parameter]])
-      lower[[parameter]] <- bounds[[parameter]][1]
-      upper[[parameter]] <- bounds[[parameter]][2]
-    }
-  }
-
-  # Fraction gauss is a little different because it must be 0-1
-  lower$fraction.gauss[lower$fraction.gauss < 0] <- 0
-  upper$fraction.gauss[upper$fraction.gauss > 0] <- 1
-
-  # Ensuring that parameters are only widened if desired
-  columns <- c('position', 'width', 'height', 'fraction.gauss')
-
-  new.lower <- unlist(lower[ , columns])
-  old.lower <- unlist(object@bounds$lower[ , columns])
-
-  new.upper <- unlist(upper[ , columns])
-  old.upper <- unlist(object@bounds$upper[ , columns])
-  
-  if (! widen ) {
-    new.lower <- ifelse(new.lower < old.lower, old.lower, new.lower)
-    new.upper <- ifelse(new.upper > old.upper, old.upper, new.upper)
-  }
-
-  object@bounds$lower[ , columns] <- new.lower
-  object@bounds$upper[ , columns] <- new.upper
-
-  object
-})
+  function(object, ...) {
+    object@resonances <- lapply(object@resonances, set_general_bounds, ...)
+    object
+  })
 
 
 
@@ -453,86 +371,10 @@ setMethod("set_general_bounds", "NMRSpecies1D",
 #' @rdname set_offset_bounds
 #' @export
 setMethod("set_offset_bounds", "NMRSpecies1D",
-  function(object, position = NULL, height = NULL, width = NULL, 
-           relative = FALSE, widen = FALSE) {
-
-  # Initializing bounds
-  object <- .initialize_bounds(object)
-  peaks <- object@peaks
-  lower <- object@bounds$lower
-  upper <- object@bounds$upper
-
-  #---------------------------------------
-  # Defining a bound check function
-  .check_bounds <- function(bounds) {
-
-    if ( length(bounds) != 2 ) {
-      err <- paste("All bounds must be vectors of two elements consisting",
-                   "of a lower and upper bound.")
-      stop(err)
-    }
-
-    err2 <- "Proceeding with current constraints will result in a fit error."
-
-    if ( bounds[1] > 0 ) {
-      err <- paste("Lower offsets must be negative so that resulting bounds",
-                   "include initial values.", err2)
-      stop(err)
-    }
-
-    if ( bounds[2] < 0 ) {
-      err <- paste("Upper offsets must be positive so that resulting bounds",
-                   "include initial values.", err2)
-      stop(err)
-    }
-
-    if ( bounds[1] > bounds[2] ) {
-      err <- paste("Lower bound must be smaller than upper bound.", err2)
-      warning(err)
-    }
-
-  }
-
-  #---------------------------------------
-  # Creating a list of bounds to loop through each in term
-  bounds = list(position = position, height = height, width = width)
-
-  for ( parameter in names(bounds) ) {
-    if ( length(bounds[[parameter]]) > 0 ) {
-      .check_bounds(bounds[[parameter]])
-
-      lower.offset <- bounds[[parameter]][1]
-      upper.offset <- bounds[[parameter]][2]
-      
-     if ( relative ) {
-        lower.offset <- lower.offset*peaks[[parameter]]
-        upper.offset <- upper.offset*peaks[[parameter]]
-      } 
-
-      lower[[parameter]] <- peaks[[parameter]] + lower.offset
-      upper[[parameter]] <- peaks[[parameter]] + upper.offset
-    }
-  }
-
-  # Ensuring that parameters are only widened if desired
-  columns <- c('position', 'width', 'height', 'fraction.gauss')
-
-  new.lower <- unlist(lower[ , columns])
-  old.lower <- unlist(object@bounds$lower[ , columns])
-
-  new.upper <- unlist(upper[ , columns])
-  old.upper <- unlist(object@bounds$upper[ , columns])
-  
-  if (! widen ) {
-    new.lower <- ifelse(new.lower < old.lower, old.lower, new.lower)
-    new.upper <- ifelse(new.upper > old.upper, old.upper, new.upper)
-  }
-
-  object@bounds$lower[ , columns] <- new.lower
-  object@bounds$upper[ , columns] <- new.upper
-
-  object
-})
+  function(object, ...) {
+    object@resonances <- lapply(object@resonances, set_offset_bounds, ...)
+    object
+  })
 
 
 
@@ -540,48 +382,9 @@ setMethod("set_offset_bounds", "NMRSpecies1D",
 #' @rdname set_conservative_bounds
 #' @export
 setMethod("set_conservative_bounds", "NMRSpecies1D",
-  function(object, position = TRUE,  height = TRUE, width = TRUE, 
-           nmrdata = NULL, widen = FALSE) { 
-
-  # First, do a single pass over general bounds with no reference
-  if ( height )  gen.height <- c(0, Inf)
-  else gen.height <- NULL
-
-  if ( width ) gen.width <- c(0.003, 3)
-  else gen.width <- NULL
-
-  object <- set_general_bounds(object, height = gen.height, width = gen.width)
-
-  # Adding position offsets
-  if ( position ) {
-    object <- set_offset_bounds(object, position = c(-0.1, 0.1))
-  }
-
-  # If nmrdata is provided, add further constraints  
-  if (! is.null(nmrdata) ) {
-    
-    if ( class(nmrdata) != 'NMRData1D' ) {
-      err <- '"nmrdata" must be a valid NMRData1D object.'
-      stop(err)
-    } else {
-      validObject(nmrdata)
-    }
-
-    if ( position )  gen.position <- c(0, 1)
-    else gen.position <- NULL
-
-    if ( height ) gen.height <- c(0, 1.5)
-    else gen.height <- NULL
-
-    if ( width ) gen.width <- c(0, 0.2)
-    else gen.width <- NULL
-
-    object <- set_general_bounds(object, position = gen.position, 
-                                 height = gen.height, width = gen.width,
-                                 nmrdata = nmrdata)
-  }
-
-  object
+  function(object, ...) { 
+    object@resonances <- lapply(object@resonances, set_conservative_bounds, ...)
+    object
   })
 
 
@@ -595,57 +398,8 @@ setMethod("set_conservative_bounds", "NMRSpecies1D",
 #------------------------------------------------------------------------
 #' @rdname f_lineshape
 #' @export
-setMethod("f_lineshape", "NMRSpecies1D",
-  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i') {
-
-    # Checking to make sure that sweep frequency is defined
-    err <- '"sf" must be provided as input or set using nmrsession_1d()'
-    if ( is.null(sf) ) stop(err)
-
-    # Defining which components to return
-    return.r <- grepl('r', tolower(components))
-    return.i <- grepl('i', tolower(components))
-
-    err <- '"components" must have at least one of either "r" or "i"'
-    if ( return.r && return.i ) f_out <- function(y) {y}
-    else if ( return.r ) f_out <- function(y) {Re(y)}
-    else if ( return.i ) f_out <- function(y) {Im(y)}
-    else stop(err)
-
-    columns <- c('position', 'width', 'height', 'fraction.gauss')
-    parameters <- as.matrix(object@peaks[, columns])
-
-    # Converting peak width to ppm
-    parameters[, 2] <- parameters[, 2]/sf
-
-    # If peaks are to be summed, just feed all parameters into the Rcpp function
-    if ( sum.peaks ) {
-      out <- function(x) {
-        y <- .Call('_rnmrfit_lineshape_1d', PACKAGE = 'rnmrfit', x, parameters)
-        f_out(y)
-      }
-    } 
-    # Otherwise, generate a tbl_df data frame
-    else {
-      out <- as_tibble(object@peaks[, c('resonance', 'peak')])
-      parameters <- split(parameters, 1:nrow(parameters))
-      
-      # Generating a list of functions, each with their parameters enclosed
-      functions <- lapply(parameters, function (p) {
-        function(x) {
-          p <- matrix(p, nrow = 1)
-          y <- .Call('_rnmrfit_lineshape_1d', PACKAGE = 'rnmrfit', x, p)
-          f_out(y)
-        }
-      })
-
-      # Adding functions as a column
-      out$f <- functions
-    }
-
-    out
-    })
+setMethod("f_lineshape", "NMRSpecies1D", 
+          getMethod("f_lineshape", "NMRResonance1D"))
 
 
 
@@ -653,32 +407,7 @@ setMethod("f_lineshape", "NMRSpecies1D",
 #' @rdname values
 #' @export
 setMethod("values", "NMRSpecies1D",
-  function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i') {
-
-  # Output depends on whether peaks are summed or not
-  if ( sum.peaks ) {
-    # Get function
-    f <- f_lineshape(object, sf, sum.peaks, components)
-
-    # And apply it to specified chemical shifts
-    f(direct.shift)
-  } 
-  else {
-    # Get data frame of functions
-    d <- f_lineshape(object, sf, sum.peaks, components)
-
-    # Defining function that generates necessary data frame
-    f <- function(g) {
-      data.frame(direct.shift = direct.shift, intensity = g[[1]](direct.shift))
-    }
-
-    # And apply it for every peak
-    d %>%
-      group_by(resonance, peak) %>%
-      do( f(.$f) )
-  }
-  })
+           getMethod("values", "NMRResonance1D"))
 
 
 
@@ -686,36 +415,4 @@ setMethod("values", "NMRSpecies1D",
 #' @rdname areas 
 #' @export
 setMethod("areas", "NMRSpecies1D",
-  function(object, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i') {
-
-  # Defining area function
-  f <- function(position, width, height, fraction.gauss) {
-    # If fraction is 0, treat as Lorentz
-    if ( fraction.gauss == 0 ) {
-      pi*width*height
-    }
-    # If fraction is 1, treat as Gauss
-    else if ( fraction.gauss == 1) {
-      sqrt(2*pi)*width*height
-    }
-    # Else, proceed as Voigt
-    else {
-      l.width <- width
-      g.width <- width*fraction.gauss/(1 - fraction.gauss)
-      Re(sqrt(2*pi)*g.width*height /
-         Faddeeva_w(complex(im = l.width)/(sqrt(2)*g.width)))
-    }
-  }
-
-  # Calculating areas
-  peaks <- object@peaks
-  areas <- peaks %>%
-    group_by(resonance, peak) %>%
-    summarize(area = f(position, width, height, fraction.gauss)) %>%
-    as.data.frame()
-
-  # Sum if necessary
-  if ( sum.peaks ) sum(areas$area)
-  else areas
-  })
+           getMethod("areas", "NMRResonance1D"))

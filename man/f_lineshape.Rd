@@ -8,16 +8,16 @@
 \title{Generate lineshape function}
 \usage{
 f_lineshape(object, sf = nmrsession_1d("sf"), sum.peaks = TRUE,
-  include.id = TRUE, components = "r/i", ...)
+  include.id = FALSE, components = "r/i", ...)
 
 \S4method{f_lineshape}{NMRResonance1D}(object, sf = nmrsession_1d("sf"),
-  sum.peaks = TRUE, components = "r/i")
+  sum.peaks = TRUE, include.id = FALSE, components = "r/i")
 
 \S4method{f_lineshape}{NMRSpecies1D}(object, sf = nmrsession_1d("sf"),
-  sum.peaks = TRUE, components = "r/i")
+  sum.peaks = TRUE, include.id = FALSE, components = "r/i")
 }
 \arguments{
-\item{object}{An NMRResonance1D object.}
+\item{object}{An NMRResonance1D or an NMRSpecies1D object.}
 
 \item{sf}{Sweep frequency (in MHz) -- needed to convert peak widths from Hz
 to ppm. In most cases, it is recommended to set a single default

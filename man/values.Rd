@@ -17,7 +17,7 @@ values(object, direct.shift, sf = nmrsession_1d("sf"),
   sf = nmrsession_1d("sf"), sum.peaks = TRUE, components = "r/i")
 }
 \arguments{
-\item{object}{An NMRResonance1D object.}
+\item{object}{An NMRResonance1D or an NMRSpecies1D object.}
 
 \item{direct.shift}{Vector of chemical shift data in ppm.}
 

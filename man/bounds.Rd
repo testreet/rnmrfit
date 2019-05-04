@@ -5,20 +5,23 @@
 \alias{bounds}
 \alias{bounds,NMRResonance1D-method}
 \alias{bounds,NMRSpecies1D-method}
-\title{Access the "bounds" of an NMRResonance1D object}
+\title{Get object bounds}
 \usage{
-bounds(object, ...)
+bounds(object, include.id = FALSE, ...)
 
-\S4method{bounds}{NMRResonance1D}(object)
+\S4method{bounds}{NMRResonance1D}(object, include.id = FALSE)
 
-\S4method{bounds}{NMRSpecies1D}(object)
+\S4method{bounds}{NMRSpecies1D}(object, include.id = FALSE)
 }
 \arguments{
-\item{object}{An NMRResonance1D.}
+\item{object}{An NMRResonance1D or NMRSpecies1D object.}
+
+\item{include.id}{TRUE to return a column of resonance or species ids.}
 
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "bounds" of an NMRResonance1D
-object.
+Generic convenience method to access the bounds of an NMRResonance1D object.
+If used on an NMRSpecies1D object, the function combines the bounds data
+frames of component resonances.
 }

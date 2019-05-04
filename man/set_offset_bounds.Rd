@@ -7,17 +7,15 @@
 \alias{set_offset_bounds,NMRSpecies1D-method}
 \title{Set offset bounds of an NMRResonance1D object}
 \usage{
-set_offset_bounds(object, position = NULL, height = NULL,
-  width = NULL, relative = FALSE, widen = FALSE, ...)
+set_offset_bounds(object, ...)
 
 \S4method{set_offset_bounds}{NMRResonance1D}(object, position = NULL,
   height = NULL, width = NULL, relative = FALSE, widen = FALSE)
 
-\S4method{set_offset_bounds}{NMRSpecies1D}(object, position = NULL,
-  height = NULL, width = NULL, relative = FALSE, widen = FALSE)
+\S4method{set_offset_bounds}{NMRSpecies1D}(object, ...)
 }
 \arguments{
-\item{object}{An NMRResonance1D object.}
+\item{object}{An NMRResonance1D or an NMRSpecies1D object.}
 
 \item{position}{A vector of two elements to be added to current peak
 positions to generate a set of lower and upper bounds. If
@@ -49,7 +47,9 @@ simple set of lower and upper constraints on basic peak parameters such as
 position, height, width, fraction.gauss. The term "offset" refers to the
 fact that bounds are applied as an offset to current values of the
 parameters. These bounds can be expressed in absolute (e.g. -0.1 and +0.1
-ppm) or relative (e.g. -1 percent and +1 percent) terms.
+ppm) or relative (e.g. -1 percent and +1 percent) terms. If applied to an
+NMRSpecies1D object, the same offset bounds are propogated to every
+resonance.
 }
 \details{
 In practice, offset bounds are primarily useful for preventing peak

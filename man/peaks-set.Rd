@@ -4,7 +4,7 @@
 \name{peaks-set}
 \alias{peaks-set}
 \alias{peaks<-,NMRResonance1D-method}
-\title{Replace the "peaks" of an NMRResonance1D object}
+\title{Set object peaks}
 \usage{
 peaks(object) <- value
 
@@ -13,9 +13,10 @@ peaks(object) <- value
 \arguments{
 \item{object}{An NMRResonance1D object.}
 
-\item{value}{Replacement value.}
+\item{value}{A data frame with "peak", "position", "width", "height", and
+"fraction.gauss" columns.}
 }
 \description{
-Generic convenience method to replace the "peaks" of an NMRResonance1D
+Generic convenience method to set the peak definitions of an NMRResonance1D
 object.
 }

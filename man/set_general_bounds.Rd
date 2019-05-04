@@ -7,20 +7,16 @@
 \alias{set_general_bounds,NMRSpecies1D-method}
 \title{Set general bounds of an NMRResonance1D object}
 \usage{
-set_general_bounds(object, position = NULL, height = NULL,
-  width = NULL, fraction.gauss = NULL, nmrdata = NULL,
-  widen = FALSE, ...)
+set_general_bounds(object, ...)
 
 \S4method{set_general_bounds}{NMRResonance1D}(object, position = NULL,
   height = NULL, width = NULL, fraction.gauss = NULL,
-  nmrdata = NULL, widen = FALSE, ...)
+  nmrdata = NULL, widen = FALSE)
 
-\S4method{set_general_bounds}{NMRSpecies1D}(object, position = NULL,
-  height = NULL, width = NULL, fraction.gauss = NULL,
-  nmrdata = NULL, widen = FALSE, ...)
+\S4method{set_general_bounds}{NMRSpecies1D}(object, ...)
 }
 \arguments{
-\item{object}{An NMRResonance1D object.}
+\item{object}{An NMRResonance1D or an NMRSpecies1D object.}
 
 \item{position}{A vector of two elements corresponding to a lower and upper
 bound for peak position. If nmrdata is provided, 0
@@ -59,7 +55,8 @@ simple set of lower and upper constraints on basic peak parameters such as
 position, height, width, fraction.gauss. The term "general" refers to the
 fact that the same bounds are applied to each and every peak, regardless of
 current parameter values. These bounds can be normalized to a set of data
-using the optional nmrdata argument.
+using the optional nmrdata argument. If applied to an NMRSpecies1D object,
+the same bounds are applied to every resonance.
 }
 \details{
 In practice, general bounds are primarily useful for placing a hard

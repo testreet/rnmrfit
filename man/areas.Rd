@@ -17,7 +17,7 @@ areas(object, sf = nmrsession_1d("sf"), sum.peaks = TRUE,
   sum.peaks = TRUE, components = "r/i")
 }
 \arguments{
-\item{object}{An NMRResonance1D object.}
+\item{object}{An NMRResonance1D or NMRSpecies1D object.}
 
 \item{sf}{Sweep frequency (in MHz) -- needed to convert peak widths from Hz
 to ppm. In most cases, it is recommended to set a single default
