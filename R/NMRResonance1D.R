@@ -1323,7 +1323,7 @@ setMethod("f_lineshape", "NMRResonance1D",
 #' @export
 setGeneric("values", 
   function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           include.id, components = 'r/i', ...) {
+           include.id = FALSE, components = 'r/i', ...) {
     standardGeneric("values")
 })
 
@@ -1331,7 +1331,7 @@ setGeneric("values",
 #' @export
 setMethod("values", "NMRResonance1D",
   function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           components = 'r/i') {
+           include.id = FALSE, components = 'r/i') {
 
   # Output depends on whether peaks are summed or not
   if ( sum.peaks ) {
@@ -1351,7 +1351,7 @@ setMethod("values", "NMRResonance1D",
     }
 
     # And apply it for every peak
-    group_by_all(d) %>% do( f(.$f) )
+    group_by_if(d, function(x) {!is.list(x)}) %>% do( f(.$f) )
   }
   })
 
