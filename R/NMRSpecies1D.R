@@ -279,20 +279,36 @@ setMethod("show", "NMRSpecies1D",
 
 
 #------------------------------------------------------------------------------
+# Id
+
+#' @rdname id
+#' @export
+setMethod("id", "NMRSpecies1D", 
+  function(object) object@id
+  )
+
+#' @rdname id-set
+#' @export
+setReplaceMethod("id", "NMRSpecies1D",
+  function(object, value) {
+    object@id <- as.character(value)
+    validObject(object)
+    object 
+  })
+
+
+
+#------------------------------------------------------------------------------
 # Peaks
 
 #' @rdname peaks
 #' @export
 setMethod("peaks", "NMRSpecies1D", 
-  function(object) object@peaks)
-
-#' @rdname peaks-set
-#' @export
-setReplaceMethod("peaks", "NMRSpecies1D",
-  function(object, value) {
-    object@peaks <- value
-    validObject(object)
-    object 
+  function(object, include.id = FALSE) {
+    peaks.list <- lapply(object@resonances, peaks, include.id = TRUE)
+    peaks <- do.call(rbind, peaks.list)
+    if ( include.id ) cbind(species = object@id, peaks)
+    else peaks
   })
 
 

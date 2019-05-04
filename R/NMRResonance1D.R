@@ -609,22 +609,37 @@ setMethod("show", "NMRResonance1D",
 
 
 #------------------------------------------------------------------------------
-# Rename
+# Id
 
-#' @templateVar slot id
-#' @template NMRResonance1D_access
+#---------------------------------------
+#' Get object id
+#' 
+#' Generic convenience method to access the id of an NMRResonance1D or
+#' NMRSpecies1D object.
+#' 
+#' @param object An NMRResonance1D or NMRSpecies1D object.
+#' @param ... Additional arguments passed to inheriting methods.
+#'
 #' @name id
 #' @export
 setGeneric("id", 
-  function(object, ...) standardGeneric("id"))
+  function(object, ...) standardGeneric("id")
+  )
 
 #' @rdname id
 #' @export
 setMethod("id", "NMRResonance1D", 
   function(object) object@id)
 
-#' @templateVar slot id
-#' @template NMRResonance1D_replacement
+#---------------------------------------
+#' Set object id
+#' 
+#' Generic convenience method to set the id of an NMRResonance1D or
+#' NMRSpecies1D object.
+#' 
+#' @param object An NMRResonance1D or NMRSpecies1D object.
+#' @param value New id (converted to character).
+#'
 #' @name id-set
 #' @export
 setGeneric("id<-", 
@@ -634,7 +649,7 @@ setGeneric("id<-",
 #' @export
 setReplaceMethod("id", "NMRResonance1D",
   function(object, value) {
-    object@id <- value
+    object@id <- as.character(value)
     validObject(object)
     object 
   })
