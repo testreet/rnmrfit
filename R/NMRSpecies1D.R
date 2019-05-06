@@ -14,7 +14,7 @@
 #' Essentially, this class is used to collect and define area relations between
 #' multiple resonances as part of a single species.
 #' 
-#' @slot resonances A list of NMRSpecies1D objects.
+#' @slot resonances A list of NMRResonance1D objects.
 #' @slot connections A data.frame relating the areas of the resonances.
 #' @slot connections.leeway A value specifying how tightly enforced the
 #'                          connection constraints on resonance areas should be.
