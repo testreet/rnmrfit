@@ -49,7 +49,7 @@ NMRFit1D <- setClass("NMRFit1D",
   prototype = prototype(
     species = list(),
     knots = numeric(0), 
-    baseline = c(0, 0, 0), 
+    baseline = complex(re = rep(0, 3), im = rep(0, 3)),
     phase = c(0)
   )
 )
@@ -87,7 +87,7 @@ validNMRFit1D <- function(object) {
     if ( logic1 || logic2 ) {
       valid <- FALSE
       new.err <- paste('All elements of "species" list must be valid',
-                       'NMRSpecies1D objects')
+                       'NMRSpecies1D objects.')
       err <- c(err, new.err)
     }
   }
@@ -97,20 +97,18 @@ validNMRFit1D <- function(object) {
   if ( (class(nmrdata) != 'NMRData1D') || (! validObject(nmrdata))  ) {
 
       valid <- FALSE
-      new.err <- '"nmrdata" must be a valid NMRData1D objects'
+      new.err <- '"nmrdata" must be a valid NMRData1D object.'
       err <- c(err, new.err)
 
   }
 
   #---------------------------------------
   # Checking basline length 
-  if ( length(baseline) != (length(knots) + nmression_1d$baseline$degree)  ) {
+  if ( length(baseline) <= length(knots)  ) {
 
       valid <- FALSE
-      new.err <- paste('"baseline" vector length equal to default baseline',
-                       'degree number plus the length of "knots" slot vector.',
-                       'Use e.g. nmrsession_1d$baseline$degree <- 3 to set the',
-                       'baseline degree.')
+      new.err <- paste('"baseline" vector length must be greater than the',
+                       '"knots" vector length.')
       err <- c(err, new.err)
 
   }
@@ -150,7 +148,7 @@ setValidity("NMRFit1D", validNMRFit1D)
 #' other objects that can be converted to NMRSpecies1D objects. See
 #' ?nmrresonance_1d and ?nmrspecies_1d for more details about this conversion.
 #' Apart from providing peak definitions (via species argument) and data (via
-#' nmrdata argument), the main decisions are related to baseline and phase
+#' nmrdata argument), the main fit decisions are related to baseline and phase
 #' correction, as well as how to deal with peaks that are defined outside the
 #' range of the data. This latter decision is broken down into two arguments:
 #' exclusion.level and exclusion.notification. The exclusion.level parameter
@@ -171,13 +169,17 @@ setValidity("NMRFit1D", validNMRFit1D)
 #'                resonance ids.
 #' @param nmrdata An NMRData1D object used to fit the supplied peaks.
 #'                automatically generated from the resonance names.
+#' @param baseline.order An integer specifying the order of the baseline spline
+#'                       function. Note the the internal B-spline implementation
+#'                       requires an order of 1 or greater. You can use an order
+#'                       of -1 to disable baseline correction.
 #' @param n.knots An integer specifying the number of internal knots to use. The
 #'                specific position of these knots can be modified later using
 #'                knots() function. To modify initial values of the baseline,
 #'                use baseline() function.
-#' @param n.phase An integer specifying the order of phase correction to use.
-#'                Typically limited to 0 or 1 order, representing 1 or 2 terms
-#'                respectively.
+#' @param phase.order An integer specifying the order of the phase correction
+#'                    polynomial. Only 0 and 1st order terms are typically used
+#'                    in practice, but a higher order correction is possible.
 #' @param delay.fit FALSE to immediately run least squares optimization after
 #'                  the NMRFit1D object is initialized, TRUE to skip the
 #'                  optimization, enabling more customization. The fit can be
@@ -203,78 +205,86 @@ setValidity("NMRFit1D", validNMRFit1D)
 #' @return An NMRFit1D object.
 #' 
 #' @export
-nmrfit_1d <- function(species, nmrdata, n.knots, n.phase, delay.fit,
-                      exclusion.level, exclusion.notfication, ...) {
+nmrfit_1d <- function(species, nmrdata,
+                      baseline.order = nmrsession_1d$baseline$order,
+                      n.knots = nmrsession_1d$baseline$n.knots, 
+                      phase.order = nmrsession_1d$phase$order, 
+                      delay.fit = FALSE,
+                      exclusion.level = 'resonance', 
+                      exclusion.notification = 'warning', ...) {
 
   #---------------------------------------
-  # Generating list of resonances
-  resonances.list <- list()
+  # Generating list of species 
 
-  for (i in 1:length(resonances)) {
 
-    resonance <- resonances[[i]]
-
-    if ( class(resonance) == 'NMRFit1D' ) {
-      err <- paste("An NMRFit1D can't be constructed from other",
-                   "NMRFit1D objects. Use resonances() to first extract",
-                   "the resonance list before creating a new object.")
-      stop(err)
-    }
-    # If the object is already an NMRResonance1D object, add it directly
-    else if ( class(resonance) == 'NMRResonance1D' ) {
-      resonances.list <- c(resonances.list, resonance)
-    }
-    # Otherwise, feed it into the nmrresonance_1d constructor
-    else {
-      resonances.list <- c(resonances.list, nmrresonance_1d(resonance, ...))
-    }
-        
-    # Modifying id if provided
-    resonance.id <- names(resonances)[i]
-    if (! is.null(resonance.id) ) id(resonances.list[[i]]) <- resonance.id
+  # If the species object is just a single species, add it to list
+  if ( class(species) == 'NMRSpecies1D' ) {
+    species.list <- list(species)
   }
-
-  #---------------------------------------
-  # Defining connections if areas provided
-
-  # Fetching resonance ids from list
-  valid.ids <- unlist(lapply(resonances.list, function(o) o@id))
-
-  if (! is.null(areas) ) {
-    # Checking that areas correspond to resonances
-    err <- paste('Either "areas" vector must have names or the length of',
-                 '"areas" vector must match length of resonances.')
-    if (! is.null(names(areas)) ) ids <- names(areas)
-    else if ( length(areas) == length(valid.ids) ) ids <- valid.ids
-    else stop(err) 
-
-    # Checking that area names are valid
-    err <- 'Names of "areas" vector must be valid resonance ids.'
-    if ( any(! ids %in% valid.ids) ) stop(err)
-
-    # Checking length
-    err <- '"areas" vector must be of length 2 or more to add constraints.'
-    if ( length(ids) < 2 ) stop(err)
-
-    # Generating connections data frame
-    n <- length(areas)
-    index.1 <- 1:(n - 1)
-    index.2 <- 2:n
-    connections <- data.frame(resonance.1 = ids[index.1], 
-                              resonance.2 = ids[index.2],
-                              area.ratio = areas[index.2]/areas[index.1])
-    rownames(connections) <- 1:nrow(connections) 
-  } 
+  # Otherwise, loop through
   else {
-    connections = data.frame()
+
+    species.list <- list()
+  
+    for (i in 1:length(species)) {
+
+      specie <- species[[i]]
+
+      # If the object is already an NMRSpecies1D object, add it directly
+      if ( class(specie) == 'NMRSpecies1D' ) {
+        species.list <- c(species.list, specie)
+      }
+      # Otherwise, feed it into the nmrspecies_1d constructor
+      else {
+        species.list <- c(species.list, nmrspecies_1d(specie, ...))
+      }
+          
+      # Modifying id if provided
+      specie.id <- names(species)[i]
+      if (! is.null(specie.id) ) id(species.list[[i]]) <- specie.id
+    }
   }
 
-  # Generating id if it doesn't exist
-  if ( is.null(id) ) id <- paste(valid.ids, collapse = '-')
+  #---------------------------------------
+  # Checking nmrdata
 
-  new('NMRFit1D', id = id, resonances = resonances.list, 
-                      connections = connections, 
-                      connections.leeway = connections.leeway)
+  if ( (class(nmrdata) != 'NMRData1D') || (! validObject(nmrdata)) ) {
+    err <- '"nmrdata" must be a valid NMRData1D object.'
+    stop(err)
+  }
+
+  #---------------------------------------
+  # Baseline and phase
+
+  # The initial value for the baseline is just the median of nmrdata intensity
+  if ( baseline.order == -1 ) {
+    baseline <- complex(0)
+    knots <- numeric(0)
+  }
+  else {
+    n <- baseline.order + n.knots
+    baseline <- complex(re = rep(median(Re(nmrdata@processed$intensity)), n),
+                        im = rep(median(Im(nmrdata@processed$intensity)), n))
+
+    # Knots are initialized to fall evenly between the chemical shift data
+    direct.shift <- range(nmrdata@processed$direct.shift)
+    knots <- seq(direct.shift[1], direct.shift[2], length.out = n.knots)
+  }
+
+  # The initial value for the phase is always 0
+  if ( phase.order == -1 ) phase <- numeric(0)
+  else phase <- rep(0, phase.order)
+
+  #---------------------------------------
+  # Resulting fit object
+  out <- new('NMRFit1D', species = species.list, nmrdata = nmrdata,
+                         knots = knots, baseline = baseline, phase = phase)
+
+  # If the fit is delayed, then return current object, otherwise fun fit first
+  if ( delay.fit ) out
+  else fit(out, exclusion.level = exclusion.level, 
+           exclusion.notification = exclusion.notification)
+
 }
 
 
@@ -339,36 +349,14 @@ setMethod("show", "NMRFit1D",
 
 
 #------------------------------------------------------------------------------
-# Id
-
-#' @rdname id
-#' @export
-setMethod("id", "NMRFit1D", 
-  function(object) object@id
-  )
-
-#' @rdname id-set
-#' @export
-setReplaceMethod("id", "NMRFit1D",
-  function(object, value) {
-    object@id <- as.character(value)
-    validObject(object)
-    object 
-  })
-
-
-
-#------------------------------------------------------------------------------
 # Peaks
 
 #' @rdname peaks
 #' @export
 setMethod("peaks", "NMRFit1D", 
-  function(object, include.id = FALSE) {
-    peaks.list <- lapply(object@resonances, peaks, include.id = TRUE)
-    peaks <- do.call(rbind, peaks.list)
-    if ( include.id ) cbind(species = object@id, peaks)
-    else peaks
+  function(object) {
+    peaks.list <- lapply(object@species, peaks, include.id = TRUE)
+    do.call(rbind, peaks.list)
   })
 
 
@@ -380,11 +368,8 @@ setMethod("peaks", "NMRFit1D",
 #' @export
 setMethod("couplings", "NMRFit1D", 
   function(object, include.id = FALSE) {
-    couplings.list <- lapply(object@resonances, couplings, include.id = TRUE)
-    couplings <- do.call(rbind, couplings.list)
-    if ( include.id ) cbind(species.1 = object@id, species.2 = object@id, 
-                            couplings)
-    else couplings
+    couplings.list <- lapply(object@species, couplings, include.id = TRUE)
+    do.call(rbind, couplings.list)
   })
 
 
@@ -395,18 +380,13 @@ setMethod("couplings", "NMRFit1D",
 #' @rdname bounds
 #' @export
 setMethod("bounds", "NMRFit1D", 
-  function(object, include.id = FALSE) {
+  function(object) {
     f <- function(o, sublist) bounds(o, include.id = TRUE)[[sublist]]
-    lower.list <- lapply(object@resonances, f, sublist = 'lower')
-    upper.list <- lapply(object@resonances, f, sublist = 'upper')
+    lower.list <- lapply(object@species, f, sublist = 'lower')
+    upper.list <- lapply(object@species, f, sublist = 'upper')
 
     lower <- do.call(rbind, lower.list)
     upper <- do.call(rbind, upper.list)
-
-    if ( include.id ) {
-      lower <- cbind(species = object@id, lower)
-      upper <- cbind(species = object@id, upper)
-    }
 
     list(lower = lower, upper = upper)
   })
@@ -423,7 +403,7 @@ setMethod("bounds", "NMRFit1D",
 #' @export
 setMethod("set_general_bounds", "NMRFit1D",
   function(object, ...) {
-    object@resonances <- lapply(object@resonances, set_general_bounds, ...)
+    object@species <- lapply(object@speies, set_general_bounds, ...)
     object
   })
 
@@ -434,7 +414,7 @@ setMethod("set_general_bounds", "NMRFit1D",
 #' @export
 setMethod("set_offset_bounds", "NMRFit1D",
   function(object, ...) {
-    object@resonances <- lapply(object@resonances, set_offset_bounds, ...)
+    object@species <- lapply(object@species, set_offset_bounds, ...)
     object
   })
 
@@ -445,7 +425,7 @@ setMethod("set_offset_bounds", "NMRFit1D",
 #' @export
 setMethod("set_conservative_bounds", "NMRFit1D",
   function(object, ...) { 
-    object@resonances <- lapply(object@resonances, set_conservative_bounds, ...)
+    object@species <- lapply(object@species, set_conservative_bounds, ...)
     object
   })
 

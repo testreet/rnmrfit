@@ -664,10 +664,10 @@ setReplaceMethod("id", "NMRResonance1D",
 #' Get object peaks
 #' 
 #' Generic convenience method to access the peak definitions of an
-#' NMRResonance1D object. If used on an NMRSpecies1D object, the function
-#' combines the peaks data frames of component resonances.
+#' NMRResonance1D object. If used on an NMRSpecies1D or NMRFit1D object, the
+#' function combines the peaks data frames of component resonances.
 #' 
-#' @param object An NMRResonance1D or NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param include.id TRUE to return a column of resonance or species ids.
 #' @param ... Additional arguments passed to inheriting methods.
 #' 
@@ -718,10 +718,10 @@ setReplaceMethod("peaks", "NMRResonance1D",
 #' Get object couplings 
 #' 
 #' Generic convenience method to access the coupling definitions of an
-#' NMRResonance1D object. If used on an NMRSpecies1D object, the function
-#' combines the couplings data frames of component resonances.
+#' NMRResonance1D object. If used on an NMRSpecies1D or NMRFit1D object, the
+#' function combines the couplings data frames of component resonances.
 #' 
-#' @param object An NMRResonance1D or NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param include.id TRUE to return a column of resonance or species ids.
 #' @param ... Additional arguments passed to inheriting methods.
 #' 
@@ -773,13 +773,13 @@ setReplaceMethod("couplings", "NMRResonance1D",
 # Bounds
 
 #---------------------------------------
-#' Get object bounds 
+#' Get object bounds
 #' 
 #' Generic convenience method to access the bounds of an NMRResonance1D object.
-#' If used on an NMRSpecies1D object, the function combines the bounds data
-#' frames of component resonances.
+#' If used on an NMRSpecies1D or NMRFit1D object, the function combines the
+#' bounds data frames of component resonances.
 #' 
-#' @param object An NMRResonance1D or NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param include.id TRUE to return a column of resonance or species ids.
 #' @param ... Additional arguments passed to inheriting methods.
 #' 
@@ -841,15 +841,15 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #' position, height, width, fraction.gauss. The term "general" refers to the
 #' fact that the same bounds are applied to each and every peak, regardless of
 #' current parameter values. These bounds can be normalized to a set of data
-#' using the optional nmrdata argument. If applied to an NMRSpecies1D object,
-#' the same bounds are applied to every resonance.
+#' using the optional nmrdata argument. If applied to an NMRSpecies1D or
+#' NMRFit1D object, the same bounds are propagated to every component resonance.
 #' 
 #' In practice, general bounds are primarily useful for placing a hard
 #' constraint on peak widths and preventing negative heights. Values of 0 for
 #' widths and height can also cause issues during optimization, so simple
 #' general bounds can be used to prevent errors.
 #' 
-#' @param object An NMRResonance1D or an NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param position A vector of two elements corresponding to a lower and upper
 #'                 bound for peak position. If nmrdata is provided, 0
 #'                 corresponds to the leftmost range of the data and 1 to the
@@ -984,15 +984,15 @@ setMethod("set_general_bounds", "NMRResonance1D",
 #' fact that bounds are applied as an offset to current values of the
 #' parameters. These bounds can be expressed in absolute (e.g. -0.1 and +0.1
 #' ppm) or relative (e.g. -1 percent and +1 percent) terms. If applied to an
-#' NMRSpecies1D object, the same offset bounds are propogated to every
-#' resonance.
+#' NMRSpecies1D or NMRFit1D object, the same offset bounds are propogated to
+#' every component resonance.
 #' 
 #' In practice, offset bounds are primarily useful for preventing peak
 #' positions from drifting too much from initial guesses and for fine-tuning a
 #' fit once an initial optimization is performed. It is not recommended to use
 #' strict offset bounds based on rough initial parameter guesses.
 #' 
-#' @param object An NMRResonance1D or an NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param position A vector of two elements to be added to current peak
 #'                 positions to generate a set of lower and upper bounds. If
 #'                 relative is true, the values are treated as fractions to be
@@ -1113,10 +1113,10 @@ setMethod("set_offset_bounds", "NMRResonance1D",
 #' are assumed to be widely applicable to most simple NMR data. Each set of
 #' bounds can be turned on or off as necessary. A slightly better set of bounds
 #' can be selected if a reference NMRData1D object is provided. If applied to
-#' an NMRSpecies1D object, the same offset bounds are propogated to every
-#' resonance.
+#' an NMRSpecies1D or NMRFit1D object, the same conservated bounds are
+#' propogated to every component resonance.
 #' 
-#' @param object An NMRResonance1D or an NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param position Without reference data, position is limited to plus or minus
 #'                 0.1 ppm. With reference data, the position of the peaks is
 #'                 forced inside the domain of the data. FALSE to disable.
@@ -1203,7 +1203,7 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 #' data frame of functions), where each function outputs spectral intensity
 #' data given a vector input of chemical shifts.
 #' 
-#' @param object An NMRResonance1D or an NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
 #'           to ppm. In most cases, it is recommended to set a single default
 #'           value using nmrsession_1d(sf = ...), but an override can be
@@ -1301,7 +1301,7 @@ setMethod("f_lineshape", "NMRResonance1D",
 #' 
 #' Calculated peak intensity values over a set of chemical shifts.
 #' 
-#' @param object An NMRResonance1D or an NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param direct.shift Vector of chemical shift data in ppm.
 #' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
 #'           to ppm. In most cases, it is recommended to set a single default
@@ -1362,7 +1362,7 @@ setMethod("values", "NMRResonance1D",
 #' 
 #' Calculate total peak areas based on peak parameters.
 #' 
-#' @param object An NMRResonance1D or NMRSpecies1D object.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
 #'           to ppm. In most cases, it is recommended to set a single default
 #'           value using nmrsession_1d(sf = ...), but an override can be

@@ -26,6 +26,7 @@ Collate:
     'NMRData1D.R'
     'NMRResonance1D.R'
     'NMRSpecies1D.R'
+    'NMRFit1D.R'
     'bruker.R'
     'data.R'
     'fitting_1d.R'
