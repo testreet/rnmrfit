@@ -7,12 +7,13 @@
 \title{Definition of an NMR fit.}
 \description{
 Essentially, this class is used to combine an NMRData1D object with multiple
-NMRSpecies1D objects while also defining baseline and phase corrections
-terms. There are two primary methods associated with this class: fit() and
-update(). fit() takes input data and peak definitions, applies a nonlinear
-least squares fit, and outputs best-fit curves into a slot called results.
-update() overwrites initial peak definitions with the results of the fit to
-generate a new set of initial values for further rounds of fitting.
+NMRSpecies1D objects while also defining baseline and phase correction
+terms. There is just one primary method associated with this class: fit().
+fit() takes input data and peak definitions, applies a nonlinear least
+squares fit, and generates best-fit peak parameters, overwriting the initial
+values. Since the fit process is destructive, the nmrfit_1d() function used
+to initialize a fit object has an option to delay the fit, allowing pre-fit
+and post-fit objects to be saved as different variables.
 }
 \section{Slots}{
 
@@ -35,8 +36,5 @@ the baseline vector length equal to the degree + n.knots.}
 \item{\code{phase}}{A number vectors of phase correction terms, starting from 0 order
 and up. The default number of phase terms can be set using
 nmrsession_1d(n.phase = 1).}
-
-\item{\code{results}}{A list of results that contains update species list as well as
-baseline and phase vectors.}
 }}
 

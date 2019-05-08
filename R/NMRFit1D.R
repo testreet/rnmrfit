@@ -12,12 +12,13 @@
 #' Definition of an NMR fit.
 #' 
 #' Essentially, this class is used to combine an NMRData1D object with multiple
-#' NMRSpecies1D objects while also defining baseline and phase corrections
-#' terms. There are two primary methods associated with this class: fit() and
-#' update(). fit() takes input data and peak definitions, applies a nonlinear
-#' least squares fit, and outputs best-fit curves into a slot called results.
-#' update() overwrites initial peak definitions with the results of the fit to
-#' generate a new set of initial values for further rounds of fitting.
+#' NMRSpecies1D objects while also defining baseline and phase correction
+#' terms. There is just one primary method associated with this class: fit().
+#' fit() takes input data and peak definitions, applies a nonlinear least
+#' squares fit, and generates best-fit peak parameters, overwriting the initial
+#' values. Since the fit process is destructive, the nmrfit_1d() function used
+#' to initialize a fit object has an option to delay the fit, allowing pre-fit
+#' and post-fit objects to be saved as different variables.
 #' 
 #' @slot species A list of NMRSpecies1D objects.
 #' @slot nmrdata An NMRData1D object used to fit the peaks.
@@ -33,8 +34,6 @@
 #' @slot phase A number vectors of phase correction terms, starting from 0 order
 #'             and up. The default number of phase terms can be set using
 #'             nmrsession_1d(n.phase = 1).
-#' @slot results A list of results that contains update species list as well as
-#'               baseline and phase vectors.
 #' 
 #' @name NMRFit1D-class
 #' @export
@@ -103,7 +102,7 @@ validNMRFit1D <- function(object) {
   }
 
   #---------------------------------------
-  # Checking basline length 
+  # Checking baseline length 
   if ( length(baseline) <= length(knots)  ) {
 
       valid <- FALSE
@@ -114,13 +113,24 @@ validNMRFit1D <- function(object) {
   }
 
   #---------------------------------------
+  # Checking the knots are all inside the boundaries
+  direct.shift <- range(nmrdata@processed$direct.shift)
+  if ( any((knots < direct.shift[1]) | (knots > direct.shift[2])) ) {
+
+      wrn <- paste('It is recommended to keep "knots" values inside the',
+                   'chemical shift range of the data.')
+      warning(wrn)
+
+  }
+
+  #---------------------------------------
   # Checking phase length 
   if ( length(phase) > 2  ) {
 
       wrn <- paste('Although "phase" slot lengths of greater than 2 are',
                    'supported, second order phase corrections and above are',
                    'highly unlikely. Results may be misleading.')
-      warning(warn)
+      warning(wrn)
 
   }
 
@@ -273,7 +283,7 @@ nmrfit_1d <- function(species, nmrdata,
 
   # The initial value for the phase is always 0
   if ( phase.order == -1 ) phase <- numeric(0)
-  else phase <- rep(0, phase.order)
+  else phase <- rep(0, phase.order + 1)
 
   #---------------------------------------
   # Resulting fit object
@@ -306,6 +316,9 @@ setMethod("show", "NMRFit1D",
 
     # Generating compiled data frames
     peaks <- peaks(object)
+    baseline <- baseline(object)
+    knots <- knots(object)
+    phase <- phase(object)
     bounds <- bounds(object)
     couplings <- couplings(object)
 
@@ -314,6 +327,29 @@ setMethod("show", "NMRFit1D",
     # Peaks
     cat('Peaks:\n\n')
     print(peaks)
+    cat('\n')
+
+    # Baseline
+    cat('Baseline correction:\n\n')
+
+    cat('Real baseline: ')
+    if ( length(baseline) > 0) {cat('\n'); print(Re(baseline))}
+    else cat('None\n')
+
+    cat('Imaginary baseline: ')
+    if ( length(baseline) > 0) {cat('\n'); print(Im(baseline))}
+    else cat('None\n')
+
+    cat('Internal knots: ')
+    if ( length(knots) > 0) {cat('\n'); print(knots)}
+    else cat('None\n')
+    cat('\n')
+
+    # Phase
+    cat('Phase correction:\n\n')
+
+    if ( length(phase) > 0) print(phase)
+    else cat('None\n')
     cat('\n')
 
     # Bounds
@@ -389,6 +425,197 @@ setMethod("bounds", "NMRFit1D",
     upper <- do.call(rbind, upper.list)
 
     list(lower = lower, upper = upper)
+  })
+
+
+
+#------------------------------------------------------------------------------
+# Baseline
+
+#---------------------------------------
+#' Get object baseline 
+#' 
+#' Generic convenience method to access the baseline definition of an
+#' NMRFit1D object.
+#' 
+#' @param object An NMRFit1D object.
+#' @param ... Additional arguments passed to inheriting methods.
+#' 
+#' @name baseline
+#' @export
+setGeneric("baseline", 
+  function(object, ...) standardGeneric("baseline")
+  )
+
+#' @rdname baseline
+#' @export
+setMethod("baseline", "NMRFit1D", 
+  function(object) object@baseline
+  )
+
+#---------------------------------------
+#' Set object baseline
+#' 
+#' Generic convenience method to set the baseline definition of an NMRFit1D
+#' object.
+#' 
+#' @param object An NMRFit1D object.
+#' @param value A vector of spectra intensity values used to construct the
+#'              baseline b-spline. The order of the baseline spline function is
+#'              calculated automatically based on the length of the "knots" slot
+#'              and the length of the baseline vector, where order =
+#'              legnth(baseline) - length(knots).
+#' 
+#' @name baseline-set
+#' @export
+setGeneric("baseline<-", 
+  function(object, value) standardGeneric("baseline<-"))
+
+#' @rdname baseline-set
+#' @export
+setReplaceMethod("baseline", "NMRFit1D",
+  function(object, value) {
+
+    if ( class(value) == 'numeric' ) {
+      wrn <- paste('Applying the same baseline parameters to both real and',
+                   'imaginary components.')
+      warning(wrn)
+      value <- complex(re = value, im = value)
+    }
+
+    object@baseline <- value
+    validObject(object)
+    object 
+  })
+
+
+
+#------------------------------------------------------------------------------
+# Knots
+
+#---------------------------------------
+#' Get object baseline knots 
+#' 
+#' Generic convenience method to access the baseline knots definition of an
+#' NMRFit1D object.
+#' 
+#' @param object An NMRFit1D object.
+#' @param ... Additional arguments passed to inheriting methods.
+#' 
+#' @name knots
+#' @export
+setGeneric("knots", 
+  function(object, ...) standardGeneric("knots")
+  )
+
+#' @rdname knots
+#' @export
+setMethod("knots", "NMRFit1D", 
+  function(object) object@knots
+  )
+
+#---------------------------------------
+#' Set object baseline knots
+#' 
+#' Generic convenience method to set the baseline knots definition of an
+#' NMRFit1D object.
+#' 
+#' @param object An NMRFit1D object.
+#' @param value A vector of chemical shifts used to designate the internal
+#'              baseline b-spline knots. Note that the number of internal knots
+#'              impacts the length of the baseline and if the length of knots is
+#'              changes, current baseline values may not feasible with the new
+#'              knots.
+#' 
+#' @name knots-set
+#' @export
+setGeneric("knots<-", 
+  function(object, value) standardGeneric("knots<-"))
+
+#' @rdname knots-set
+#' @export
+setReplaceMethod("knots", "NMRFit1D",
+  function(object, value) {
+
+    # If the knot length changes, baseline parameters have to change
+    if ( length(object@knots) != length(value) ) {
+      
+      # Generating y values from current baseline parameters
+      x <- object@nmrdata@processed$direct.shift
+      k1 <- object@knots
+      b1 <- object@baseline
+      n1 <- length(b1) - length(k1)
+      X1 <- bs(x, degree = n1, knots = k1)
+      y1 <- X1 %*% b1
+
+      # Generating new baseline values from new basis
+      k2 <- value
+      X2 <- bs(x, degree = n1, knots = k2)
+      b2 <- solve(t(X2) %*% X2) %*% t(X2) %*% y1
+      y2 <- X2 %*% b2
+
+      # If the resulting change in baseline parameters resulted in a change
+      # to baseline values, issue a warning to that effect
+      wrn <- paste('New knot values can not be used to represent current',
+                   'baseline. New baseline parameters will be generated using',
+                   'a least-squares fit.')
+      if ( any( ( Re(y2-y1) > 1e-6 ) | ( Im(y2-y1) > 1e-6) ) ) warning(wrn)
+
+      object@baseline <- as.vector(b2)
+    }
+
+    object@knots <- value
+    validObject(object)
+    object 
+  })
+
+
+
+#---------------------------------------
+#' Get object phase 
+#' 
+#' Generic convenience method to access the phase definition of an
+#' NMRFit1D object.
+#' 
+#' @param object An NMRFit1D object.
+#' @param ... Additional arguments passed to inheriting methods.
+#' 
+#' @name phase
+#' @export
+setGeneric("phase", 
+  function(object, ...) standardGeneric("phase")
+  )
+
+#' @rdname phase
+#' @export
+setMethod("phase", "NMRFit1D", 
+  function(object) object@phase
+  )
+
+#---------------------------------------
+#' Set object phase
+#' 
+#' Generic convenience method to set the phase definition of an NMRFit1D
+#' object.
+#' 
+#' @param object An NMRFit1D object.
+#' @param value A vector of phase polynomial values in increasing order (in
+#'              radians). So c(pi/4, pi/8) represents a 0 order phase correction
+#'              of 45 degrees and a 1st order correction of 22.5 degrees
+#'              (referenced to 0 ppm).
+#' 
+#' @name phase-set
+#' @export
+setGeneric("phase<-", 
+  function(object, value) standardGeneric("phase<-"))
+
+#' @rdname phase-set
+#' @export
+setReplaceMethod("phase", "NMRResonance1D",
+  function(object, value) {
+    object@phase <- value
+    validObject(object)
+    object 
   })
 
 
