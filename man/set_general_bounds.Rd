@@ -17,7 +17,8 @@ set_general_bounds(object, ...)
 
 \S4method{set_general_bounds}{NMRSpecies1D}(object, ...)
 
-\S4method{set_general_bounds}{NMRFit1D}(object, ...)
+\S4method{set_general_bounds}{NMRFit1D}(object, ..., nmrdata = NULL,
+  widen = FALSE, baseline = NULL, phase = NULL)
 }
 \arguments{
 \item{object}{An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.}
@@ -49,9 +50,24 @@ values greater than 1 will be treated as 1.}
 point for the bounds.}
 
 \item{widen}{FALSE to prevent new bounds from widening existing bounds.}
+
+\item{baseline}{Only applicable to NMRFit1D objects. A complex vector of two
+elements corresponding to a lower and upper bound for both
+real and imaginary baseline control points (which roughly
+corresponds to a baseline value). If the vector has no
+imaginary component, the imaginary baseline is left
+unbounded. If nmrdata is provided, 0 corresponds to the
+lowest value of spectral intensity and 1 to the largest.
+Otherwise, the units correspond to arbitrary spectral
+intensity values.}
+
+\item{phase}{Only applicable to NMRFit1D objects. A vector of two elements
+corresponding to a lower and upper bound for the phase
+correction (in radians) at any point in the chemical shift
+range.}
 }
 \value{
-A new NMRResonance1D object with modified bounds.
+A new object with modified bounds.
 }
 \description{
 This function provides a convenience method for generating bounds using a
@@ -60,7 +76,8 @@ position, height, width, fraction.gauss. The term "general" refers to the
 fact that the same bounds are applied to each and every peak, regardless of
 current parameter values. These bounds can be normalized to a set of data
 using the optional nmrdata argument. If applied to an NMRSpecies1D or
-NMRFit1D object, the same bounds are propagated to every component resonance.
+NMRFit1D object, the same bounds are propagated to every component
+resonance.
 }
 \details{
 In practice, general bounds are primarily useful for placing a hard

@@ -43,7 +43,7 @@ them directly.}
 \item{widen}{FALSE to prevent new bounds from widening existing bounds.}
 }
 \value{
-A new NMRResonance1D object with modified bounds.
+A new object with modified bounds.
 }
 \description{
 This function provides a convenience method for generating bounds using a

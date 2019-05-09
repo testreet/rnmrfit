@@ -17,7 +17,8 @@ set_conservative_bounds(object, ...)
 
 \S4method{set_conservative_bounds}{NMRSpecies1D}(object, ...)
 
-\S4method{set_conservative_bounds}{NMRFit1D}(object, ...)
+\S4method{set_conservative_bounds}{NMRFit1D}(object, ..., nmrdata = NULL,
+  widen = FALSE, baseline = TRUE, phase = TRUE)
 }
 \arguments{
 \item{object}{An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.}
@@ -39,9 +40,17 @@ percent of the data range.  FALSE to disable.}
 point for the bounds.}
 
 \item{widen}{FALSE to prevent new bounds from widening existing bounds.}
+
+\item{baseline}{Without reference data, the baseline control points are left
+unrestricted. With reference data, the real baseline control
+points are limited to no more than 50 percent of the maximum
+peak value. FALSE to disable.}
+
+\item{phase}{With or without reference data, phase correction is limited to
+-pi/2 to pi/2.}
 }
 \value{
-A new NMRResonance1D object with modified bounds.
+A new object with modified bounds.
 }
 \description{
 A convenience function that sets reasonable bounds on the fit. These bounds

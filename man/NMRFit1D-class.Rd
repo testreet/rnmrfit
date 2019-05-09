@@ -36,5 +36,13 @@ the baseline vector length equal to the degree + n.knots.}
 \item{\code{phase}}{A number vectors of phase correction terms, starting from 0 order
 and up. The default number of phase terms can be set using
 nmrsession_1d(n.phase = 1).}
+
+\item{\code{bounds}}{A lower and upper bounds on baseline and phase terms. Both lower
+and upper bounds are lists containing "baseline", and "phase"
+elements. A "peaks" element is also generated dynamically from
+the species list when using the bounds() getter function. Unlike
+peaks, baseline and phase only have a single lower and upper
+bound, representing the overall minimum/maximum baseline/phase
+value at any point in the spectrum.}
 }}
 

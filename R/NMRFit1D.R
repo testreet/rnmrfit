@@ -34,6 +34,13 @@
 #' @slot phase A number vectors of phase correction terms, starting from 0 order
 #'             and up. The default number of phase terms can be set using
 #'             nmrsession_1d(n.phase = 1).
+#' @slot bounds A lower and upper bounds on baseline and phase terms. Both lower
+#'              and upper bounds are lists containing "baseline", and "phase"
+#'              elements. A "peaks" element is also generated dynamically from
+#'              the species list when using the bounds() getter function. Unlike
+#'              peaks, baseline and phase only have a single lower and upper
+#'              bound, representing the overall minimum/maximum baseline/phase
+#'              value at any point in the spectrum.
 #' 
 #' @name NMRFit1D-class
 #' @export
@@ -43,13 +50,15 @@ NMRFit1D <- setClass("NMRFit1D",
     nmrdata = 'NMRData1D',
     knots = 'numeric',
     baseline = 'complex',
-    phase = 'numeric'
+    phase = 'numeric',
+    bounds = 'list'
   ),
   prototype = prototype(
     species = list(),
     knots = numeric(0), 
     baseline = complex(re = rep(0, 3), im = rep(0, 3)),
-    phase = c(0)
+    phase = c(0),
+    bounds = list(lower = NULL, upper = NULL)
   )
 )
 
@@ -71,6 +80,7 @@ validNMRFit1D <- function(object) {
   knots <- object@knots
   baseline <- object@baseline
   phase <- object@phase
+  bounds <- object@bounds
 
   # The result list is not validated as it should be relatively safe to assume
   # that this slot would not be touched directly.
@@ -110,6 +120,53 @@ validNMRFit1D <- function(object) {
                        '"knots" vector length.')
       err <- c(err, new.err)
 
+  }
+
+  #---------------------------------------
+  # Checking that lower bounds match slots 
+  valid.bounds <- c('baseline', 'phase')
+  if (! is.null(bounds$lower) ) {
+
+    logic <- identical(names(bounds$lower), valid.bounds)
+    if (! logic ) {
+      valid <- FALSE
+      new.err <- sprintf('"bounds$lower" must have the following elements: %s',
+                         paste(valid.bounds, collapse = ', '))
+      err <- c(err, new.err)
+    }
+
+    logic.1 <- length(bounds$lower$baseline) %in% c(0, 1)
+    logic.2 <- length(bounds$lower$phase) %in% c(0, 1) 
+    if (! (logic.1 && logic.2) ) {
+      valid <- FALSE
+      new.err <- paste('"bounds$lower$baseline" and "bounds$lower$phase must',
+                       'have a length of either zero or one, representing an',
+                       'overall bound on baseline or phase correction.')
+      err <- c(err, new.err)
+    }
+  }
+
+  #---------------------------------------
+  # Checking that upper bounds match slots
+  if (! is.null(bounds$upper) ) {
+
+    logic <- identical(names(bounds$upper), valid.bounds)
+    if (! logic ) {
+      valid <- FALSE
+      new.err <- sprintf('"bounds$upper" must have the following elements: %s',
+                         paste(valid.bounds, collapse = ', '))
+      err <- c(err, new.err)
+    }
+
+    logic.1 <- length(bounds$upper$baseline) %in% c(0, 1)
+    logic.2 <- length(bounds$upper$phase) %in% c(0, 1) 
+    if (! (logic.1 && logic.2) ) {
+      valid <- FALSE
+      new.err <- paste('"bounds$upper$baseline" and "bounds$upper$phase must',
+                       'have a length of either zero or one, representing an',
+                       'overall bound on baseline or phase correction.')
+      err <- c(err, new.err)
+    }
   }
 
   #---------------------------------------
@@ -285,10 +342,15 @@ nmrfit_1d <- function(species, nmrdata,
   if ( phase.order == -1 ) phase <- numeric(0)
   else phase <- rep(0, phase.order + 1)
 
+  # Initializing bounds
+  bounds <- list(lower = list(baseline = complex(0), phase = numeric(0)),
+                 upper = list(baseline = complex(0), phase = numeric(0)))
+
   #---------------------------------------
   # Resulting fit object
   out <- new('NMRFit1D', species = species.list, nmrdata = nmrdata,
-                         knots = knots, baseline = baseline, phase = phase)
+                         knots = knots, baseline = baseline, phase = phase,
+                         bounds = bounds)
 
   # If the fit is delayed, then return current object, otherwise fun fit first
   if ( delay.fit ) out
@@ -354,8 +416,8 @@ setMethod("show", "NMRFit1D",
 
     # Bounds
     columns <- c('position', 'width', 'height', 'fraction.gauss')
-    lower <- unlist(bounds$lower[ , columns])
-    upper <- unlist(bounds$upper[ , columns])
+    lower <- unlist(bounds$lower$peaks[ , columns])
+    upper <- unlist(bounds$upper$peaks[ , columns])
     
     range <- paste('(', lower, ', ', upper, ')', sep = '')
     peaks[ , columns] <- range
@@ -363,6 +425,42 @@ setMethod("show", "NMRFit1D",
     cat('Bounds (lower, upper):\n\n')
     print(peaks)
     cat('\n')   
+
+    # Baseline bounds
+    cat('Baseline and phase correction bounds:\n\n')
+
+    cat('Real baseline: ')
+    if ( length(bounds$lower$baseline) > 0) {
+      lower <- Re(bounds$lower$baseline)
+      upper <- Re(bounds$upper$baseline)
+      
+      range <- paste('(', lower, ', ', upper, ')\n', sep = '')
+      cat(range)
+    }
+    else cat('None\n')
+
+    cat('Imaginary baseline: ')
+    if ( length(bounds$lower$baseline) > 0) {
+      lower <- Im(bounds$lower$baseline)
+      upper <- Im(bounds$upper$baseline)
+      
+      range <- paste('(', lower, ', ', upper, ')\n', sep = '')
+      cat(range)
+    }
+    else cat('None\n')
+
+    # Phase bounds
+    cat('Phase: ')
+
+    if ( length(bounds$lower$phase) > 0)  {
+      lower <- bounds$lower$phase
+      upper <- bounds$upper$phase
+      
+      range <- paste('(', lower, ', ', upper, ')\n', sep = '')
+      cat(range)
+    }
+    else cat('None\n')
+    cat('\n')
 
     # Couplings
     if ( nrow(couplings) > 0 ) {
@@ -417,14 +515,32 @@ setMethod("couplings", "NMRFit1D",
 #' @export
 setMethod("bounds", "NMRFit1D", 
   function(object) {
+    # Extracting peak bounds from species
     f <- function(o, sublist) bounds(o, include.id = TRUE)[[sublist]]
     lower.list <- lapply(object@species, f, sublist = 'lower')
     upper.list <- lapply(object@species, f, sublist = 'upper')
 
-    lower <- do.call(rbind, lower.list)
-    upper <- do.call(rbind, upper.list)
+    lower.peaks <- do.call(rbind, lower.list)
+    upper.peaks <- do.call(rbind, upper.list)
 
-    list(lower = lower, upper = upper)
+    # Baseline and phase
+    lower.baseline <- object@bounds$lower$baseline
+    lower.baseline <- ifelse(length(lower.baseline) == 0, 
+                             complex(re = -Inf, im = -Inf), lower.baseline)
+    upper.baseline <- object@bounds$upper$baseline
+    upper.baseline <- ifelse(length(upper.baseline) == 0, 
+                             complex(re = Inf, im = Inf), upper.baseline)   
+
+    lower.phase <- object@bounds$lower$phase
+    lower.phase <- ifelse(length(lower.phase) == 0, -Inf, lower.phase)   
+    upper.phase <- object@bounds$upper$phase
+    upper.phase <- ifelse(length(upper.phase) == 0, Inf, upper.phase)   
+
+    # Outputting
+    list(lower = list(peaks = lower.peaks, baseline = lower.baseline, 
+                      phase = lower.phase), 
+         upper = list(peaks = upper.peaks, baseline = upper.baseline,
+                      phase = upper.phase))
   })
 
 
@@ -629,10 +745,92 @@ setReplaceMethod("phase", "NMRResonance1D",
 #' @rdname set_general_bounds
 #' @export
 setMethod("set_general_bounds", "NMRFit1D",
-  function(object, ...) {
-    object@species <- lapply(object@speies, set_general_bounds, ...)
-    object
-  })
+  function(object, ..., nmrdata = NULL, widen = FALSE,
+           baseline = NULL, phase = NULL) {
+  
+  # First, propagating bounds to component species
+  object@species <- lapply(object@species, set_general_bounds, ...,
+                           nmrdata = nmrdata, widen = widen)
+
+  #---------------------------------------
+  # Then dealing with baseline and phase
+
+  # Temporarily splitting real and imaginar baselines into two different values 
+  if ( class(baseline) == 'numeric' ) {
+    re.baseline <- baseline
+    im.baseline <- NULL
+  }
+  else if ( class(baseline) == 'complex' ) {
+    re.baseline <- Re(baseline)
+    im.baseline <- Im(baseline)
+  }
+  else {
+    re.baseline <- NULL
+    im.baseline <- NULL
+  }
+
+  # Scaling baseline if nmrdata provided
+  if (! is.null(nmrdata) ) {
+    processed <- nmrdata@processed
+    re.y.range <- max(Re(processed$intensity)) - min(Re(processed$intensity))
+    im.y.range <- max(Im(processed$intensity)) - min(Im(processed$intensity))
+
+    re.baseline <- re.baseline * re.y.range
+    im.baseline <- im.baseline * im.y.range
+  }
+
+  # Defining a bound check function
+  .check_bounds <- function(bounds) {
+
+    if ( length(bounds) != 2 ) {
+      err <- paste("All bounds must be vectors of two elements consisting",
+                   "of a lower and upper bound.")
+      stop(err)
+    }
+
+    if ( bounds[1] > bounds[2] ) {
+      err <- paste("Lower bound must be smaller than upper bound.",
+                   "Proceeding with current constraints will result in a",
+                   "fit error.")
+      warning(err)
+    }
+
+  }
+
+  # Applying
+  lower <- bounds(object)$lower
+  upper <- bounds(object)$upper
+
+  lower$re.baseline <- Re(lower$baseline)
+  lower$im.baseline <- Im(lower$baseline)
+
+  upper$re.baseline <- Re(upper$baseline)
+  upper$im.baseline <- Im(upper$baseline)
+
+  bounds = list(re.baseline = re.baseline, im.baseline = im.baseline,
+                phase = phase)
+
+  for ( parameter in names(bounds) ) {
+    if ( length(bounds[[parameter]]) > 0 ) {
+      .check_bounds(bounds[[parameter]])
+
+      new <- bounds[[parameter]][1]
+      if ( (new > lower[[parameter]]) || widen ) lower[[parameter]] <- new
+
+      new <- bounds[[parameter]][2]
+      if ( (new < upper[[parameter]]) || widen ) upper[[parameter]] <- new
+    }
+  }
+
+  lower$baseline <- complex(re = lower$re.baseline, im = lower$im.baseline)
+  upper$baseline <- complex(re = upper$re.baseline, im = upper$im.baseline)
+
+  object@bounds$lower <- lower[c('baseline', 'phase')]
+  object@bounds$upper <- upper[c('baseline', 'phase')]
+
+  validObject(object)
+  object
+})
 
 
 
@@ -651,10 +849,29 @@ setMethod("set_offset_bounds", "NMRFit1D",
 #' @rdname set_conservative_bounds
 #' @export
 setMethod("set_conservative_bounds", "NMRFit1D",
-  function(object, ...) { 
-    object@species <- lapply(object@species, set_conservative_bounds, ...)
-    object
-  })
+  function(object,  ..., nmrdata = NULL, widen = FALSE,
+           baseline = TRUE, phase = TRUE) {
+  
+  # First, propagating bounds to component species
+  object@species <- lapply(object@species, set_conservative_bounds, ...,
+                           nmrdata = nmrdata, widen = widen)
+
+  #---------------------------------------
+  # Then dealing with baseline and phase
+
+  # Adding baseline constraint if nmrdata is provided
+  if ( (! is.null(nmrdata)) && baseline ) {
+    object <- set_general_bounds(object, baseline = c(-0.5, 0.5),
+                                 nmrdata = nmrdata, widen = widen)
+  }
+
+  # Phase constrain is applied regardless of nmrdata
+  if ( phase ) {
+    object <- set_general_bounds(object, phase = c(-pi/2, pi/2), widen = widen)
+  }
+
+  object
+})
 
 
 

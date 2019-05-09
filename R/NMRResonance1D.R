@@ -92,19 +92,6 @@ validNMRResonance1D <- function(object) {
   }
 
   #---------------------------------------
-  # Checking couplings
-  if ( nrow(couplings) > 0 ) {
-
-    valid.columns <- c('peak.1', 'peak.2', 'position.difference', 'area.ratio')
-    if (! identical(colnames(couplings), valid.columns) ) {
-      valid <- FALSE
-      new.err <- sprintf('"couplings" must have the following columns: %s',
-                         paste(valid.columns, collapse = ', '))
-      err <- c(err, new.err)
-    }
-  }
-
-  #---------------------------------------
   # Checking that lower bounds match peaks
   if (! is.null(bounds$lower) ) {
 
@@ -142,6 +129,19 @@ validNMRResonance1D <- function(object) {
     if (! (logic1 && logic2) ) {
       valid <- FALSE
       new.err <- '"bounds$upper" resonance and peak columns must match "peaks"'
+      err <- c(err, new.err)
+    }
+  }
+
+  #---------------------------------------
+  # Checking couplings
+  if ( nrow(couplings) > 0 ) {
+
+    valid.columns <- c('peak.1', 'peak.2', 'position.difference', 'area.ratio')
+    if (! identical(colnames(couplings), valid.columns) ) {
+      valid <- FALSE
+      new.err <- sprintf('"couplings" must have the following columns: %s',
+                         paste(valid.columns, collapse = ', '))
       err <- c(err, new.err)
     }
   }
@@ -842,7 +842,8 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #' fact that the same bounds are applied to each and every peak, regardless of
 #' current parameter values. These bounds can be normalized to a set of data
 #' using the optional nmrdata argument. If applied to an NMRSpecies1D or
-#' NMRFit1D object, the same bounds are propagated to every component resonance.
+#' NMRFit1D object, the same bounds are propagated to every component
+#' resonance.
 #' 
 #' In practice, general bounds are primarily useful for placing a hard
 #' constraint on peak widths and preventing negative heights. Values of 0 for
@@ -869,12 +870,25 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #'                       can be set to c(0, 0) to force Lorentzian peaks. Any
 #'                       values smaller than 0 will be treated as 0 and any
 #'                       values greater than 1 will be treated as 1.
+#' @param baseline Only applicable to NMRFit1D objects. A complex vector of two
+#'                 elements corresponding to a lower and upper bound for both
+#'                 real and imaginary baseline control points (which roughly
+#'                 corresponds to a baseline value). If the vector has no
+#'                 imaginary component, the imaginary baseline is left
+#'                 unbounded. If nmrdata is provided, 0 corresponds to the
+#'                 lowest value of spectral intensity and 1 to the largest.
+#'                 Otherwise, the units correspond to arbitrary spectral
+#'                 intensity values.
+#' @param phase Only applicable to NMRFit1D objects. A vector of two elements
+#'              corresponding to a lower and upper bound for the phase
+#'              correction (in radians) at any point in the chemical shift
+#'              range.
 #' @param nmrdata An optional NMRData1D object that can serve as a reference
 #'                point for the bounds.
 #' @param widen FALSE to prevent new bounds from widening existing bounds.
 #' @inheritParams methodEllipse
 #' 
-#' @return A new NMRResonance1D object with modified bounds.
+#' @return A new object with modified bounds.
 #' 
 #' @name set_general_bounds
 #' @export
@@ -907,8 +921,8 @@ setMethod("set_general_bounds", "NMRResonance1D",
     }
 
     processed <- nmrdata@processed
-    y.range <- range(Re(processed$intensity))
-    x.range <- range(processed$direct.shift)
+    y.range <- max(Re(processed$intensity)) - min(Re(processed$intensity))
+    x.range <- max(processed$direct.shift) - min(processed$direct.shift)
 
     position <- position * x.range
     height <- height * y.range
@@ -970,6 +984,7 @@ setMethod("set_general_bounds", "NMRResonance1D",
   object@bounds$lower[ , columns] <- new.lower
   object@bounds$upper[ , columns] <- new.upper
 
+  validObject(object)
   object
 })
 
@@ -1011,7 +1026,7 @@ setMethod("set_general_bounds", "NMRResonance1D",
 #' @param widen FALSE to prevent new bounds from widening existing bounds.
 #' @inheritParams methodEllipse
 #' 
-#' @return A new NMRResonance1D object with modified bounds.
+#' @return A new object with modified bounds.
 #' 
 #' @name set_offset_bounds
 #' @export
@@ -1101,6 +1116,7 @@ setMethod("set_offset_bounds", "NMRResonance1D",
   object@bounds$lower[ , columns] <- new.lower
   object@bounds$upper[ , columns] <- new.upper
 
+  validObject(object)
   object
 })
 
@@ -1127,12 +1143,18 @@ setMethod("set_offset_bounds", "NMRResonance1D",
 #'              not quite 0 Hz (1e-3 Hz) and a maximum peak width of 3 Hz. With
 #'              reference data, peak width is prevented from being more than 20
 #'              percent of the data range.  FALSE to disable.
+#' @param baseline Without reference data, the baseline control points are left
+#'                 unrestricted. With reference data, the real baseline control
+#'                 points are limited to no more than 50 percent of the maximum
+#'                 peak value. FALSE to disable.
+#' @param phase With or without reference data, phase correction is limited to
+#'              -pi/2 to pi/2.
 #' @param nmrdata An optional NMRData1D object that can serve as a reference
 #'                point for the bounds.
 #' @param widen FALSE to prevent new bounds from widening existing bounds.
 #' @inheritParams methodEllipse
 #' 
-#' @return A new NMRResonance1D object with modified bounds.
+#' @return A new object with modified bounds.
 #' 
 #' @name set_conservative_bounds
 #' @export
@@ -1154,11 +1176,12 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
   if ( width ) gen.width <- c(0.003, 3)
   else gen.width <- NULL
 
-  object <- set_general_bounds(object, height = gen.height, width = gen.width)
+  object <- set_general_bounds(object, height = gen.height, width = gen.width,
+                               widen = widen)
 
   # Adding position offsets
   if ( position ) {
-    object <- set_offset_bounds(object, position = c(-0.1, 0.1))
+    object <- set_offset_bounds(object, position = c(-0.1, 0.1), widen = widen)
   }
 
   # If nmrdata is provided, add further constraints  
@@ -1182,7 +1205,7 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 
     object <- set_general_bounds(object, position = gen.position, 
                                  height = gen.height, width = gen.width,
-                                 nmrdata = nmrdata)
+                                 nmrdata = nmrdata, widen = widen)
   }
 
   object
