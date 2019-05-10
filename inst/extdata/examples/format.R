@@ -9,7 +9,7 @@ peaks <- list('C2'='31.62 s',
               'C7'='31.94 s')
 
 # Line-broadening 2 Hz
-nmrdata1 <- nmrdata_1d('c13-inept', number = 1)
+nmrdata1 <- nmrdata_1d('c13-inept', procs.number = 1)
 
 d1 <- filter_1d(nmrdata1, 30.7, 33.3)
 
@@ -37,7 +37,7 @@ print(fit2)
 nmr.chol.bad <- nmrdata1
 
 # Sine apodized 
-nmrdata3 <- nmrdata_1d('c13-inept', number = 2)
+nmrdata3 <- nmrdata_1d('c13-inept', procs.number = 2)
 nmrdata3 <- set_convolution(nmrdata3)
 
 d3 <- filter_1d(nmrdata3, 30.7, 33.3, round.up = TRUE)

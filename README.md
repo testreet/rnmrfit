@@ -8,7 +8,7 @@ More information can be found in the accompanying article: https://doi.org/10.10
 
 Simple lower and upper bound generation has been cleaned up with the introduction of `set_absolute_bounds` and `set_relative_bounds`. The default bounds implemented through`set_conservative_bounds` have also been re-thought and should hopefully lead to better fits out of the box. More details in the examples below.
 
-Basic JCAMP data import has been implemented in the jcamp branch, but more testing is needed to account for various JCAMP variations. Import is currently limited to JCAMP files that store both real and imaginary data in the frequency domain. Bug reports would be appreciated if anyone encounters issues.
+Basic JCAMP data import has been merged into the master branch, but more testing is needed to account for various JCAMP variations. Import is currently limited to JCAMP files that store both real and imaginary data in the frequency domain. Bug reports would be appreciated if anyone encounters issues. 
 
 ## Installation
 
@@ -52,12 +52,12 @@ As it stands, the `rnmrfit` package relies on previously processed data that it 
 nmrdata <- nmrdata_1d('/path/to/nmr/experiment/')
 ```
 
-You can replace `'/path/to/nmr/experiment/'` with something like `'C:/Data/Experiments/10/'`. By default, `nmrdata_1d()` will load the smallest directory found in the `pdata` folder. You can override this with the `number` argument.
+You can replace `'/path/to/nmr/experiment/'` with something like `'C:/Data/Experiments/10/'`. By default, `nmrdata_1d()` will load the smallest directory found in the `pdata` folder. You can override this with the `procs.number` argument.
 
 ```
 #!R
 
-nmrdata <- nmrdata_1d('/path/to/nmr/experiment/', number = 999)
+nmrdata <- nmrdata_1d('/path/to/nmr/experiment/', procs.number = 999)
 ```
 
 Outside of performing a lineshape fit, there is not much that you can do with the data alone -- you can filter it to a specified range of chemical shift values and plot it for a quick inspection. That said, you'll probably want to use something like Topspin for full featured data processing and visualization. The package comes with some example 13C data in the `nmr.chol` variable. 
