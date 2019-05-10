@@ -4,7 +4,7 @@
 \name{status_message}
 \alias{status_message}
 \alias{status_message,NMRFit1D-method}
-\title{Access the "status_message" of an NRMScaffold object}
+\title{Access the "status_message" slot of an NRMScaffold object}
 \usage{
 status_message(object, ...)
 
@@ -16,6 +16,6 @@ status_message(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "status_message" of an NMRScaffold
+Generic convenience method to access the "status_message" slot of an NMRScaffold
 object.
 }

@@ -6,7 +6,7 @@
 \alias{constraints,NMRScaffold-method}
 \alias{constraints,NMRScaffold1D-method}
 \alias{constraints,NMRFit1D-method}
-\title{Access the "constraints" of an NRMScaffold object}
+\title{Access the "constraints" slot of an NRMScaffold object}
 \usage{
 constraints(object, ...)
 
@@ -22,6 +22,6 @@ constraints(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "constraints" of an NMRScaffold
+Generic convenience method to access the "constraints" slot of an NMRScaffold
 object.
 }

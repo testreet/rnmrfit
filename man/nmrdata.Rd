@@ -6,7 +6,7 @@
 \alias{nmrdata,NMRScaffold-method}
 \alias{nmrdata,NMRScaffold1D-method}
 \alias{nmrdata,NMRFit1D-method}
-\title{Access the "nmrdata" of an NRMScaffold object}
+\title{Access the "nmrdata" slot of an NRMScaffold object}
 \usage{
 nmrdata(object, ...)
 
@@ -22,6 +22,6 @@ nmrdata(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "nmrdata" of an NMRScaffold
+Generic convenience method to access the "nmrdata" slot of an NMRScaffold
 object.
 }

@@ -6,7 +6,7 @@
 \alias{normalized,NMRScaffold-method}
 \alias{normalized,NMRScaffold1D-method}
 \alias{normalized,NMRFit1D-method}
-\title{Access the "normalized" of an NRMScaffold object}
+\title{Access the "normalized" slot of an NRMScaffold object}
 \usage{
 normalized(object, ...)
 
@@ -22,6 +22,6 @@ normalized(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "normalized" of an NMRScaffold
+Generic convenience method to access the "normalized" slot of an NMRScaffold
 object.
 }

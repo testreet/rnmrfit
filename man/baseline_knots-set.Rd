@@ -5,7 +5,7 @@
 \alias{baseline_knots-set}
 \alias{baseline_knots<-,NMRScaffold1D-method}
 \alias{baseline_knots<-,NMRFit1D-method}
-\title{Replace the "knots" of an NMRScaffold object}
+\title{Replace the "knots" slot of an NMRScaffold object}
 \usage{
 baseline_knots(object) <- value
 
@@ -19,6 +19,6 @@ baseline_knots(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "knots" of an NMRScaffold
+Generic convenience method to replace the "knots" slot of an NMRScaffold
 object.
 }

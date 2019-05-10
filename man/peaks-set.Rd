@@ -6,7 +6,7 @@
 \alias{peaks<-,NMRScaffold-method}
 \alias{peaks<-,NMRScaffold1D-method}
 \alias{peaks<-,NMRFit1D-method}
-\title{Replace the "peaks" of an NMRScaffold object}
+\title{Replace the "peaks" slot of an NMRScaffold object}
 \usage{
 peaks(object) <- value
 
@@ -22,6 +22,6 @@ peaks(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "peaks" of an NMRScaffold
+Generic convenience method to replace the "peaks" slot of an NMRScaffold
 object.
 }

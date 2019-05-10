@@ -5,7 +5,7 @@
 \alias{processed-set}
 \alias{processed<-,NMRData-method}
 \alias{processed<-,NMRData1D-method}
-\title{Replace the "processed" of an NMRData object}
+\title{Replace the "processed" slot of an NMRData object}
 \usage{
 processed(object) <- value
 
@@ -19,6 +19,6 @@ processed(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "processed" of an NMRData
+Generic convenience method to replace the "processed" slot of an NMRData
 object.
 }

@@ -7,7 +7,7 @@
 \alias{peak_units,NMRScaffold1D-method}
 \alias{peak_units,NMRFit1D-method}
 \alias{peak_units<-,NMRFit1D-method}
-\title{Access the "peak_units" of an NRMScaffold object}
+\title{Access the "peak_units" slot of an NRMScaffold object}
 \usage{
 peak_units(object, ...)
 
@@ -25,6 +25,6 @@ peak_units(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "peak_units" of an NMRScaffold
+Generic convenience method to access the "peak_units" slot of an NMRScaffold
 object.
 }

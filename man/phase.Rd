@@ -6,7 +6,7 @@
 \alias{phase,NMRScaffold-method}
 \alias{phase,NMRScaffold1D-method}
 \alias{phase,NMRFit1D-method}
-\title{Access the "phase" of an NRMScaffold object}
+\title{Access the "phase" slot of an NRMScaffold object}
 \usage{
 phase(object, ...)
 
@@ -22,6 +22,6 @@ phase(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "phase" of an NMRScaffold
+Generic convenience method to access the "phase" slot of an NMRScaffold
 object.
 }

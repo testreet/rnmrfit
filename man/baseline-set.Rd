@@ -5,7 +5,7 @@
 \alias{baseline-set}
 \alias{baseline<-,NMRScaffold1D-method}
 \alias{baseline<-,NMRFit1D-method}
-\title{Replace the "baseline" of an NMRScaffold object}
+\title{Replace the "baseline" slot of an NMRScaffold object}
 \usage{
 baseline(object) <- value
 
@@ -19,6 +19,6 @@ baseline(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "baseline" of an NMRScaffold
+Generic convenience method to replace the "baseline" slot of an NMRScaffold
 object.
 }

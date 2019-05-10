@@ -278,7 +278,7 @@ nmrscaffold_1d <- function(peak.list, nmrdata, peak.type = 'lorenz',
   coupling <- parsed$coupling
 
   # Converting Hertz coupling into ppm
-  sfo1 <- nmrdata@acqus[['sfo1']]
+  sfo1 <- get_parameter(nmrdata, 'sfo1', 'acqus')
   coupling <- lapply(coupling, function(x) x/sfo1)
 
   # Initializing output

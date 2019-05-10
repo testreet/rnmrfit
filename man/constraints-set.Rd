@@ -6,7 +6,7 @@
 \alias{constraints<-,NMRScaffold-method}
 \alias{constraints<-,NMRScaffold1D-method}
 \alias{constraints<-,NMRFit1D-method}
-\title{Replace the "constraints" of an NMRScaffold object}
+\title{Replace the "constraints" slot of an NMRScaffold object}
 \usage{
 constraints(object) <- value
 
@@ -22,6 +22,6 @@ constraints(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "constraints" of an NMRScaffold
+Generic convenience method to replace the "constraints" slot of an NMRScaffold
 object.
 }

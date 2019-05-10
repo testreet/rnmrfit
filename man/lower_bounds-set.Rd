@@ -6,7 +6,7 @@
 \alias{lower_bounds<-,NMRScaffold-method}
 \alias{lower_bounds<-,NMRScaffold1D-method}
 \alias{lower_bounds<-,NMRFit1D-method}
-\title{Replace the "lower_bounds" of an NMRScaffold object}
+\title{Replace the "lower_bounds" slot of an NMRScaffold object}
 \usage{
 lower_bounds(object) <- value
 
@@ -22,6 +22,6 @@ lower_bounds(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "lower_bounds" of an NMRScaffold
+Generic convenience method to replace the "lower_bounds" slot of an NMRScaffold
 object.
 }

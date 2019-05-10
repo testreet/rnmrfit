@@ -5,7 +5,7 @@
 \alias{procs-set}
 \alias{procs<-,NMRData-method}
 \alias{procs<-,NMRData1D-method}
-\title{Replace the "procs" of an NMRData object}
+\title{Replace the "procs" slot of an NMRData object}
 \usage{
 procs(object) <- value
 
@@ -19,6 +19,6 @@ procs(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "procs" of an NMRData
+Generic convenience method to replace the "procs" slot of an NMRData
 object.
 }

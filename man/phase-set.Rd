@@ -6,7 +6,7 @@
 \alias{phase<-,NMRScaffold-method}
 \alias{phase<-,NMRScaffold1D-method}
 \alias{phase<-,NMRFit1D-method}
-\title{Replace the "phase" of an NMRScaffold object}
+\title{Replace the "phase" slot of an NMRScaffold object}
 \usage{
 phase(object) <- value
 
@@ -22,6 +22,6 @@ phase(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "phase" of an NMRScaffold
+Generic convenience method to replace the "phase" slot of an NMRScaffold
 object.
 }

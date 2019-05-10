@@ -5,7 +5,7 @@
 \alias{baseline_knots}
 \alias{baseline_knots,NMRScaffold1D-method}
 \alias{baseline_knots,NMRFit1D-method}
-\title{Access the "knots" of an NRMScaffold object}
+\title{Access the "knots" slot of an NRMScaffold object}
 \usage{
 baseline_knots(object, ...)
 
@@ -19,6 +19,6 @@ baseline_knots(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "knots" of an NMRScaffold
+Generic convenience method to access the "knots" slot of an NMRScaffold
 object.
 }

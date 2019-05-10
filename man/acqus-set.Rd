@@ -5,7 +5,7 @@
 \alias{acqus-set}
 \alias{acqus<-,NMRData-method}
 \alias{acqus<-,NMRData1D-method}
-\title{Replace the "acqus" of an NMRData object}
+\title{Replace the "acqus" slot of an NMRData object}
 \usage{
 acqus(object) <- value
 
@@ -19,6 +19,6 @@ acqus(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "acqus" of an NMRData
+Generic convenience method to replace the "acqus" slot of an NMRData
 object.
 }

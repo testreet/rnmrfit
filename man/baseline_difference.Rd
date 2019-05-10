@@ -5,7 +5,7 @@
 \alias{baseline_difference}
 \alias{baseline_difference,NMRScaffold1D-method}
 \alias{baseline_difference,NMRFit1D-method}
-\title{Access the "baseline_difference" of an NRMScaffold object}
+\title{Access the "baseline_difference" slot of an NRMScaffold object}
 \usage{
 baseline_difference(object, ...)
 
@@ -19,6 +19,6 @@ baseline_difference(object, ...)
 \item{...}{Additional arguments passed to inheriting methods.}
 }
 \description{
-Generic convenience method to access the "baseline_difference" of an NMRScaffold
+Generic convenience method to access the "baseline_difference" slot of an NMRScaffold
 object.
 }

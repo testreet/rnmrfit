@@ -12,7 +12,7 @@ set_convolution(object, trim = 0, param = list(), f = NULL)
   f = NULL)
 }
 \arguments{
-\item{object}{An NMRScaffold1D or NMRScaffold2D object.}
+\item{object}{An NMRData1D object.}
 
 \item{trim}{Number of point to truncate from the end of the fid's 
 acquisition time (not including zero fill). It's common to 

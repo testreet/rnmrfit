@@ -6,7 +6,7 @@
 \alias{nmrdata<-,NMRScaffold-method}
 \alias{nmrdata<-,NMRScaffold1D-method}
 \alias{nmrdata<-,NMRFit1D-method}
-\title{Replace the "nmrdata" of an NMRScaffold object}
+\title{Replace the "nmrdata" slot of an NMRScaffold object}
 \usage{
 nmrdata(object) <- value
 
@@ -22,6 +22,6 @@ nmrdata(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "nmrdata" of an NMRScaffold
+Generic convenience method to replace the "nmrdata" slot of an NMRScaffold
 object.
 }

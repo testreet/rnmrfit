@@ -6,7 +6,7 @@
 \alias{bounds<-,NMRScaffold-method}
 \alias{bounds<-,NMRScaffold1D-method}
 \alias{bounds<-,NMRFit1D-method}
-\title{Replace the "bounds" of an NMRScaffold object}
+\title{Replace the "bounds" slot of an NMRScaffold object}
 \usage{
 bounds(object) <- value
 
@@ -22,6 +22,6 @@ bounds(object) <- value
 \item{value}{Replacement value.}
 }
 \description{
-Generic convenience method to replace the "bounds" of an NMRScaffold
+Generic convenience method to replace the "bounds" slot of an NMRScaffold
 object.
 }
