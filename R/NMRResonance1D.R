@@ -1333,6 +1333,9 @@ setMethod("f_lineshape", "NMRResonance1D",
 #' @param sum.peaks TRUE to add all individual peaks together and output a
 #'                  single set of values, FALSE to output a data frame of values
 #'                  that correspond to individual peaks.
+#' @param sum.baseline TRUE to add baseline to every peak, if one is defined.
+#'                     FALSE to exclude baseline. that correspond to individual
+#'                     peaks.
 #' @param include.id TRUE to include id as "resonance" column if outputting data
 #'                   frame.
 #' @param components 'r/i' to output both real and imaginary data, 'r' to output
@@ -1346,7 +1349,7 @@ setMethod("f_lineshape", "NMRResonance1D",
 #' @export
 setGeneric("values", 
   function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           include.id = FALSE, components = 'r/i', ...) {
+           sum.baseline = FALSE, include.id = FALSE, components = 'r/i', ...) {
     standardGeneric("values")
 })
 
@@ -1354,7 +1357,14 @@ setGeneric("values",
 #' @export
 setMethod("values", "NMRResonance1D",
   function(object, direct.shift, sf = nmrsession_1d('sf'), sum.peaks = TRUE, 
-           include.id = FALSE, components = 'r/i') {
+           sum.baseline = FALSE, include.id = FALSE, components = 'r/i') {
+
+  # Generating baseline if necessaru
+  if ( sum.baseline && (class(object) == 'NMRFit1D') ) {
+    f <- f_baseline(object, components)
+    baseline <- f(direct.shift)
+  }
+  else baseline <- rep(0, length(direct.shift))
 
   # Output depends on whether peaks are summed or not
   if ( sum.peaks ) {
@@ -1362,7 +1372,7 @@ setMethod("values", "NMRResonance1D",
     f <- f_lineshape(object, sf, sum.peaks, components)
 
     # And apply it to specified chemical shifts
-    f(direct.shift)
+    f(direct.shift) + baseline
   } 
   else {
     # Get data frame of functions
@@ -1370,7 +1380,8 @@ setMethod("values", "NMRResonance1D",
 
     # Defining function that generates necessary data frame
     f <- function(g) {
-      data.frame(direct.shift = direct.shift, intensity = g[[1]](direct.shift))
+      data.frame(direct.shift = direct.shift, 
+                 intensity = g[[1]](direct.shift) + baseline)
     }
 
     # And apply it for every peak

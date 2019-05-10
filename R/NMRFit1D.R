@@ -882,6 +882,56 @@ setMethod("set_conservative_bounds", "NMRFit1D",
 
 
 #------------------------------------------------------------------------
+#' Generate baseline function
+#' 
+#' This is primarily an internal method that outputs a function that outputs
+#' spectral intensity data of the fit baseline given a vector input of chemical
+#' shifts.
+#' 
+#' @param object An NMRFit1D object.
+#' @param components 'r/i' to output both real and imaginary data, 'r' to output
+#'                   only real and 'i' to output only imaginary.
+#' @inheritParams methodEllipse
+#' 
+#' @return A function that outputs spectral intensity data of the fit baseline
+#'         given a vector input of chemical shifts.
+#' 
+#' @name f_baseline
+#' @export
+setGeneric("f_baseline", 
+  function(object, components = 'r/i', ...) {
+    standardGeneric("f_baseline")
+})
+
+#' @rdname f_baseline
+#' @export
+setMethod("f_baseline", "NMRFit1D",
+  function(object, components = 'r/i') {
+
+    # Defining which components to return
+    return.r <- grepl('r', tolower(components))
+    return.i <- grepl('i', tolower(components))
+
+    err <- '"components" must have at least one of either "r" or "i"'
+    if ( return.r && return.i ) f_out <- function(y) {y}
+    else if ( return.r ) f_out <- function(y) {Re(y)}
+    else if ( return.i ) f_out <- function(y) {Im(y)}
+    else stop(err)
+
+    knots <- object@knots
+    baseline <- object@baseline
+    order <- length(baseline) - length(knots)
+
+    # Generating function
+    function(x) {
+      basis <- splines::bs(x, degree = order, knots = knots)
+      y <- basis %*% matrix(baseline, ncol = 1)
+      f_out(y)
+    }
+    })
+
+
+#------------------------------------------------------------------------
 #' @rdname f_lineshape
 #' @export
 setMethod("f_lineshape", "NMRFit1D", 
@@ -902,3 +952,164 @@ setMethod("values", "NMRFit1D",
 #' @export
 setMethod("areas", "NMRFit1D",
            getMethod("areas", "NMRResonance1D"))
+
+
+
+#==============================================================================>
+# Plotting  
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' Plot NMRFit1D object
+#' 
+#' Generates an interactive plot object using the plotly package.
+#' 
+#' Convenience function that generates a graphical representation of the fit.
+#' The original data is plotted as a black line, the fit is plotted in red, the
+#' baseline is plotted in blue, the residual in red. The fit can be plotted as
+#' a composite of all the peaks, or individually.
+#' 
+#' @param x An NMRFit1D object.
+#' @param components One of either 'r', 'i', or 'r/i' to include real, imaginary
+#'                   or both components. If both components are selected, they
+#'                   are displayed in separate subplots.
+#' @param sum.level One of either 'all', 'species', 'resonance', 'peak' to
+#'                  specify whether all peaks should be summed together the
+#'                  peaks should be summed at a lower level.
+#' @param sum.baseline TRUE to add the baseline to each fit.
+#' @param apply.phase TRUE to apply the calculated phase to the data.
+#' 
+#' @return A ggplot2 plot.
+#' 
+#' @export
+plot.NMRFit1D <- function(x, components = 'r', apply.phase = TRUE,  
+                          sum.level = 'species', sum.baseline = TRUE) { 
+
+  #---------------------------------------
+  # Calculating all required values
+
+  # The original data
+  d <- x@nmrdata@processed
+  direct.shift <- d$direct.shift
+  y.data <- d$intensity
+
+  if ( apply.phase ) {
+    y.data <- phase_spectrum(y.data, x@phase, degrees = FALSE)
+  }
+
+  # The overall fit
+  sf <- get_parameter(x@nmrdata, 'sfo1', 'acqus')
+  if ( is.null(sf) ) sf <- nmrsession_1d$sf
+
+  f <- f_lineshape(x, sf = sf, sum.peaks = TRUE)
+  y.fit <- f(direct.shift)
+
+  # The baseline
+  f <- f_baseline(x)
+  y.baseline <- f(direct.shift)
+
+  # The residual
+  y.residual <- y.data - y.fit - y.baseline
+
+  # All individual fits
+  y.fit.all <- values(x, direct.shift, sf = sf, 
+                      sum.peaks = FALSE, sum.baseline = FALSE)
+
+  # Generating grouped fits based on sum.level. The output is a list of
+  # of data.frames with names that will be plotted one at a time
+
+  # If everything is to be summed, generate frame from overall fit data
+  if ( sum.level == 'all' ) {
+    d <- data.frame(direct.shift = direct.shift, intensity = y.fit)
+    frames <- list('Fit' = d)
+  }
+  else {
+    err <- '"sum.level" must be one of "all", "species", "resonance", or "peak"'
+    if ( sum.level == 'species' ) columns <- 'species'
+    else if ( sum.level == 'resonance' ) columns <- c('species', 'resonances')
+    else if ( sum.level == 'peak' ) columns <- c('species', 'resonance', 'peak')
+    else stop(err)
+  
+    # Tacking on direct.shift as a grouping column
+    all.columns <- c(columns, 'direct.shift')
+
+    d <- y.fit.all %>%
+      group_by_at(all.columns) %>%
+      summarize(intensity = sum(intensity)) %>%
+      ungroup()
+
+    d$id <- apply(d[, columns], 1, paste, collapse = '-')
+
+    d <- select(d, id, direct.shift, intensity)
+
+    frames <- by(d, d$id, identity)
+  }
+
+
+  #---------------------------------------
+  # Defining basic plot functions
+
+  # Setting legend options
+  legend.opts <- list(orientation = 'h', xanchor = "center", x = 0.5)
+
+  # Note that the x values for each of the following functions is already
+  # set as the direct shift of the data
+
+  # This function initializes the overall plot object by drawing a single
+  # line with the colour and name of choice
+  f_init <- function(y, color, name) {
+    p <- plot_ly(x = direct.shift, y = y, color = I(color), 
+                 name = I(name), type = 'scatter', mode = 'lines',
+                 legendgroup = 1) %>%
+         layout(legend = legend.opts,
+                xaxis = list(autorange = "reversed"))
+  }
+
+  # This functions adds a new line to an existing plot object
+  f_add <- function(p, y, color, name, group, showlegend = TRUE) {
+    p %>% 
+      add_trace(x = direct.shift, y = y, color = I(color),
+                name = I(name), type = 'scatter', mode = 'lines',
+                legendgroup = group, showlegend = showlegend)
+  }
+
+  #---------------------------------------
+  # Building up the plot elements
+
+  # Initializing the plot list
+  plots <- list()
+
+  # Checking which components to plot
+  re <- grepl('r', components)
+  im <- grepl('i', components)
+
+  # Initializing plots
+  if ( re ) plots$r <- f_init(Re(y.data), 'black', 'Real')
+  if ( im ) plots$i <- f_init(Im(y.data), 'grey', 'Imaginary')
+
+  # Adding baseline
+  if ( re ) plots$r <- f_add(plots$r, Re(y.baseline), 'blue', 'Baseline', 2) 
+  if ( im ) plots$i <- f_add(plots$i, Im(y.baseline), 'blue', 'Baseline', 2)
+
+  # Adding residual
+  if ( re ) plots$r <- f_add(plots$r, Re(y.residual), 'green', 'Residual', 3) 
+  if ( im ) plots$i <- f_add(plots$i, Re(y.residual), 'green', 'Residual', 3)
+
+  # Looping through each previously defined peak grouping
+  for ( i in 1:length(frames) ) {
+
+    y <- frames[[i]]$intensity
+    if ( sum.baseline ) y <- y + y.baseline
+
+    id <- names(frames)[i] 
+
+    if ( re ) plots$r <- f_add(plots$r, Re(y), 'red', id, id) 
+    if ( im ) plots$i <- f_add(plots$i, Im(y), 'red', id, id)
+  }
+
+  if ( length(plots) == 0 ) NULL
+  else subplot(plots, shareX = TRUE, shareY = TRUE, 
+               nrows = min(length(plots), 2))
+}

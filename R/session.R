@@ -24,4 +24,11 @@ nmrsession_1d <- set_opt(
                  .length = 1,
                  .class = "list",
                  .validate = function(x) {names(x) == ''})
-  )
+)
+
+# Some potential plot options to consider in the future:
+# "plot" = list(.value = 
+#    list('legend.entries' = c('data', 'fit', 'baseline', 'residual'),
+#         'nrows'
+#          'legend.position'
+#          'reverse')

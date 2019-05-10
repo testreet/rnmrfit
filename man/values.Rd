@@ -10,19 +10,20 @@
 \title{Calculate peak lineshape values}
 \usage{
 values(object, direct.shift, sf = nmrsession_1d("sf"),
-  sum.peaks = TRUE, include.id = FALSE, components = "r/i", ...)
+  sum.peaks = TRUE, sum.baseline = FALSE, include.id = FALSE,
+  components = "r/i", ...)
 
 \S4method{values}{NMRResonance1D}(object, direct.shift,
-  sf = nmrsession_1d("sf"), sum.peaks = TRUE, include.id = FALSE,
-  components = "r/i")
+  sf = nmrsession_1d("sf"), sum.peaks = TRUE, sum.baseline = FALSE,
+  include.id = FALSE, components = "r/i")
 
 \S4method{values}{NMRSpecies1D}(object, direct.shift,
-  sf = nmrsession_1d("sf"), sum.peaks = TRUE, include.id = FALSE,
-  components = "r/i")
+  sf = nmrsession_1d("sf"), sum.peaks = TRUE, sum.baseline = FALSE,
+  include.id = FALSE, components = "r/i")
 
 \S4method{values}{NMRFit1D}(object, direct.shift,
-  sf = nmrsession_1d("sf"), sum.peaks = TRUE, include.id = FALSE,
-  components = "r/i")
+  sf = nmrsession_1d("sf"), sum.peaks = TRUE, sum.baseline = FALSE,
+  include.id = FALSE, components = "r/i")
 }
 \arguments{
 \item{object}{An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.}
@@ -37,6 +38,10 @@ provided here.}
 \item{sum.peaks}{TRUE to add all individual peaks together and output a
 single set of values, FALSE to output a data frame of values
 that correspond to individual peaks.}
+
+\item{sum.baseline}{TRUE to add baseline to every peak, if one is defined.
+FALSE to exclude baseline. that correspond to individual
+peaks.}
 
 \item{include.id}{TRUE to include id as "resonance" column if outputting data
 frame.}
