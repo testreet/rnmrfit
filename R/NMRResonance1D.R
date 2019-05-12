@@ -279,7 +279,7 @@ parse_peaks_1d <- function(coupling.string) {
 
 
 
-#------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 #' Split peaks data.frame according to specified coupling.
 #' 
 #' @param peaks A peaks data.frame from NMRResonance1D object.
@@ -321,7 +321,7 @@ split_peaks_1d <- function(peaks, number, constant) {
 
 
 
-#------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 #' Enforce coupling relations between peaks.
 #' 
 #' Adds a set of constraints between specified peaks that fixes the differences
@@ -689,11 +689,15 @@ setMethod("peaks", "NMRResonance1D",
 #' Set object peaks
 #' 
 #' Generic convenience method to set the peak definitions of an NMRResonance1D
-#' object.
+#' NMRSpecies1D, or NMRFit1D object. This is primarily intended as an internal
+#' method, so use with caution. Changing peak definitions after an object has
+#' been defined may have unpredictable consequences.
 #' 
-#' @param object An NMRResonance1D object.
-#' @param value A data frame with "peak", "position", "width", "height", and
-#'              "fraction.gauss" columns.
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
+#' @param value A data frame with "position", "width", "height", and
+#'              "fraction.gauss" columns. Peaks may be defined by one to three
+#'              columns of "peak", "resonance", and "species" depending on the
+#'              nature of the original object.
 #' 
 #' @name peaks-set
 #' @export
@@ -824,6 +828,69 @@ setReplaceMethod("bounds", "NMRResonance1D",
     validObject(object)
     object 
   })
+
+
+
+#==============================================================================>
+#  Initialization functions (generating parameter estimates based on data)
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' Initialize peak heights of an NMRResonance1D object
+#' 
+#' Generates peak height estimates based on spectral data. If applied to an
+#' NMRSpecies1D or NMRFit1D object, the same initialization is propagated to
+#' every component resonance.
+#' 
+#' At this point, there is just one approach: take peak height as the intensity
+#' of the data at the current position of the peak. There are plans to develop
+#' more sophisticated approaches in the future.
+#' 
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
+#' @param nmrdata An NMRData1D object.
+#' @inheritParams methodEllipse
+#' 
+#' @return A new object with modified peak heights.
+#' 
+#' @name initialize_heights
+#' @export
+setGeneric("initialize_heights", 
+  function(object, ...) {
+    standardGeneric("initialize_heights")
+  })
+
+#' @rdname initialize_heights
+#' @export
+setMethod("initialize_heights", "NMRResonance1D",
+  function(object, nmrdata) {
+
+  # Checking nmrdata
+  if ( class(nmrdata) != 'NMRData1D' ) {
+    err <- '"nmrdata" must be a valid NMRData1D object.'
+    stop(err)
+  }
+  else {
+    validObject(nmrdata)
+  }
+
+  # Building a simple interpolating function betwen chemical shift and intensity
+  d <- processed(nmrdata)
+  f <- approxfun(d$direct.shift, d$intensity)
+
+  # Checking that all peak positions are inside the provided data
+  p <- object@peaks
+  logic <- (p$position > min(d$direct.shift)) & 
+           (p$position < max(d$direct.shift))
+
+
+  # Generating heights from interpolation
+
+  d$height <- f(d$position)
+
+
+})
 
 
 

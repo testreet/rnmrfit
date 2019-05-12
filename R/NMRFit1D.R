@@ -493,6 +493,37 @@ setMethod("peaks", "NMRFit1D",
     do.call(rbind, peaks.list)
   })
 
+#' @rdname peaks-set
+#' @export
+setReplaceMethod("peaks", "NMRFit1D",
+  function(object, value) {
+
+    # Check that data.frame has a species column
+    err <- 'New peaks data.frame must value a "species" column.'
+    if (! 'species' %in% colnames(value) ) stop(err)
+
+    # Check that new resonances match current resonances
+    new.names <- unique(value$species)
+    old.names <- unlist(lapply(object@species, id))
+    logic <- ! new.names %in% old.names
+    wrn <- sprintf('The following species are not defined, ignoring: %s',
+                   paste(new.names[logic], collapse = ', '))
+
+    if ( any(logic) ) warning(wrn)
+
+    # Splitting up new values and assigning
+    new.peaks <- by(value, value$species, function(d) select(d, -species))
+    indexes <- which(old.names %in% new.names)
+
+    for ( i in indexes ) {
+      specie <- object@species[[i]]
+      peaks(specie) <- new.peaks[[old.names[i]]]
+      object@species[[i]] <- specie
+    }
+
+    validObject(object)
+    object 
+  })
 
 
 #------------------------------------------------------------------------------
@@ -1028,7 +1059,7 @@ plot.NMRFit1D <- function(x, components = 'r', apply.phase = TRUE,
   else {
     err <- '"sum.level" must be one of "all", "species", "resonance", or "peak"'
     if ( sum.level == 'species' ) columns <- 'species'
-    else if ( sum.level == 'resonance' ) columns <- c('species', 'resonances')
+    else if ( sum.level == 'resonance' ) columns <- c('species', 'resonance')
     else if ( sum.level == 'peak' ) columns <- c('species', 'resonance', 'peak')
     else stop(err)
   

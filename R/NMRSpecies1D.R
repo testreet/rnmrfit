@@ -309,6 +309,38 @@ setMethod("peaks", "NMRSpecies1D",
     else peaks
   })
 
+#' @rdname peaks-set
+#' @export
+setReplaceMethod("peaks", "NMRSpecies1D",
+  function(object, value) {
+
+    # Check that data.frame has a resonance column
+    err <- 'New peaks data.frame must value a "resonance" column.'
+    if (! 'resonance' %in% colnames(value) ) stop(err)
+
+    # Check that new resonances match current resonances
+    new.names <- unique(value$resonance)
+    old.names <- unlist(lapply(object@resonances, id))
+    logic <- ! new.names %in% old.names
+    wrn <- sprintf('The following resonances are not defined, ignoring: %s',
+                   paste(new.names[logic], collapse = ', '))
+
+    if ( any(logic) ) warning(wrn)
+
+    # Splitting up new values and assigning
+    new.peaks <- by(value, value$resonance, function(d) select(d, -resonance))
+    indexes <- which(old.names %in% new.names)
+
+    for ( i in indexes ) {
+      resonance <- object@resonances[[i]]
+      peaks(resonance) <- new.peaks[[old.names[i]]]
+      object@resonances[[i]] <- resonance
+    }
+
+    validObject(object)
+    object 
+  })
+
 
 
 #------------------------------------------------------------------------------
