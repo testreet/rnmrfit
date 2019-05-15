@@ -246,6 +246,7 @@ setMethod("show", "NMRSpecies1D",
 
     # Bounds
     columns <- c('position', 'width', 'height', 'fraction.gauss')
+
     lower <- unlist(bounds$lower[ , columns])
     upper <- unlist(bounds$upper[ , columns])
     
@@ -305,7 +306,7 @@ setMethod("peaks", "NMRSpecies1D",
   function(object, include.id = FALSE) {
     peaks.list <- lapply(object@resonances, peaks, include.id = TRUE)
     peaks <- do.call(rbind, peaks.list)
-    if ( include.id ) cbind(species = object@id, peaks)
+    if ( include.id && (nrow(peaks) > 0) ) cbind(species = object@id, peaks)
     else peaks
   })
 
@@ -341,6 +342,77 @@ setReplaceMethod("peaks", "NMRSpecies1D",
     object 
   })
 
+#' @rdname update_peaks
+setMethod("update_peaks", "NMRSpecies1D",
+  function(object, peaks, exclusion.level = nmrsession_1d$exclusion$level,
+           exclusion.notification = nmrsession_1d$exclusion$notification) {
+
+  # Check that columns match before continuing
+  current.peaks <- peaks(object)
+  err <- '"peaks" columns must match those of current peaks data.frame.'
+  if (! all(colnames(peaks) %in% colnames(current.peaks))) stop(err)
+
+  # Check for missing peaks
+  current.ids <- apply(current.peaks[, c('resonance', 'peak')], 1, 
+                       paste, collapse = '-')
+
+  new.ids <- apply(peaks[, c('resonance', 'peak')], 1, 
+                   paste, collapse = '-')
+  logic <- ! current.ids %in% new.ids
+
+  if ( any(logic) ) {
+
+    msg <- paste('The following peaks were found outside the data range',
+                 'and were therefore excluded:\n',
+                  paste(current.ids[logic]))
+
+    # Expanding message based on level
+    if ( exclusion.level %in% c('resonance', 'species') ) {
+      removed.resonances <- unique(current.peaks$resonance[logic])
+
+      msg <- paste(msg, 
+                   '\nBased on the current exclusion.level, the following',
+                   'resonances were further excluded:\n',
+                   paste(removed.resonances, collapse = ', '))
+
+      # Removing resonances from updated peaks
+      peaks <- filter(peaks, ! resonance %in% removed.resonances)
+    }
+
+    # Issue notification as requested
+    f.error <- function(x) {
+      msg <- paste('"exclusion.notification" must be one "none", "message",',
+                   '"warning", or "stop"')
+      stop(msg)
+    }
+
+    f.notification = switch(exclusion.notification, none = identity,
+                            message = message, warning = warning, stop = stop,
+                            f.error)
+    f.notification(msg)
+  }
+
+  # Initializing removal index
+  indexes <- c()
+
+  # Updating peaks
+  for ( i in 1:length(object@resonances) ) {
+    resonance <- object@resonances[[i]]
+    id <- resonance@id
+    sub.peaks <- peaks %>% filter(resonance == id) %>% select(-resonance)
+
+    if ( nrow(sub.peaks) == 0 ) indexes <- c(indexes, i) 
+
+    resonance <- update_peaks(resonance, sub.peaks,
+                              exclusion.level = exclusion.level,
+                              exclusion.notification = 'none')
+    object@resonances[[i]] <- resonance
+  }
+
+  if ( length(indexes) > 0 ) object@resonances <- object@resonances[-indexes]
+
+  object
+})
 
 
 #------------------------------------------------------------------------------
@@ -352,8 +424,9 @@ setMethod("couplings", "NMRSpecies1D",
   function(object, include.id = FALSE) {
     couplings.list <- lapply(object@resonances, couplings, include.id = TRUE)
     couplings <- do.call(rbind, couplings.list)
-    if ( include.id ) cbind(species.1 = object@id, species.2 = object@id, 
-                            couplings)
+    if ( include.id && (nrow(couplings) > 0) ) {
+      cbind(species.1 = object@id, species.2 = object@id, couplings)
+    }
     else couplings
   })
 
@@ -374,8 +447,8 @@ setMethod("bounds", "NMRSpecies1D",
     upper <- do.call(rbind, upper.list)
 
     if ( include.id ) {
-      lower <- cbind(species = object@id, lower)
-      upper <- cbind(species = object@id, upper)
+      if ( nrow(lower) > 0 ) lower <- cbind(species = object@id, lower)
+      if ( nrow(upper) > 0 ) upper <- cbind(species = object@id, upper)
     }
 
     list(lower = lower, upper = upper)

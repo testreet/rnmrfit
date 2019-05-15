@@ -578,6 +578,7 @@ setMethod("show", "NMRResonance1D",
 
     # Bounds
     columns <- c('position', 'width', 'height', 'fraction.gauss')
+
     lower <- unlist(bounds$lower[ , columns])
     upper <- unlist(bounds$upper[ , columns])
     
@@ -681,8 +682,11 @@ setGeneric("peaks",
 #' @export
 setMethod("peaks", "NMRResonance1D", 
   function(object, include.id = FALSE) {
-    if ( include.id ) cbind(resonance = object@id, object@peaks)
-    else object@peaks
+    peaks <- object@peaks
+    if ( include.id && (nrow(peaks) > 0) ) {
+      cbind(resonance = object@id, peaks)
+    }
+    else peaks
   })
 
 #---------------------------------------
@@ -712,6 +716,81 @@ setReplaceMethod("peaks", "NMRResonance1D",
     validObject(object)
     object 
   })
+
+
+
+#------------------------------------------------------------------------------
+#' Update NMRResonance1D peak parameters
+#' 
+#' This is an internal function whose role is to update existing peak
+#' parameters, while accounting for exclusion criteria and generating relevant
+#' errors/messages. Any peak not updated is excluded.
+#' 
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
+#' @param peaks A data frame with "position", "width", "height", and
+#'              "fraction.gauss" columns. Peaks may be defined by one to three
+#'              columns of "peak", "resonance", and "species" depending on the
+#'              nature of the original object.
+#' @param exclusion.level A string specifying what to do when peaks are found to
+#'                        fall outside of the data range: either 'species' to
+#'                        exclude the whole species to which the offending peak
+#'                        belongs, 'resonance' to exclude the resonance to which
+#'                        the offending peak belongs, or 'peak' to exclude just
+#'                        the peak itself.
+#' @param exclusion.notification A function specifying how to report when peaks
+#'                               are found to be outside the data range: 'none'
+#'                               to ignore, 'message' to issue a message,
+#'                               'warning' to issue a warning, and 'stop' to
+#'                               issue an error.
+#' @inheritParams methodEllipse
+#' 
+#' @return A new object with modified peak parameters.
+#' 
+#' @name update_peaks
+setGeneric("update_peaks", 
+  function(object, ...) {
+    standardGeneric("update_peaks")
+  })
+
+#' @rdname update_peaks
+setMethod("update_peaks", "NMRResonance1D",
+  function(object, peaks, exclusion.level = nmrsession_1d$exclusion$level,
+           exclusion.notification = nmrsession_1d$exclusion$notification) {
+
+  # Check that columns match before continuing
+  current.peaks <- peaks(object)
+  err <- '"peaks" columns must match those of current peaks data.frame.'
+  if (! all(colnames(peaks) %in% colnames(current.peaks))) stop(err)
+
+  # Check for missing peaks
+  current.ids <- current.peaks$peak
+  new.ids <- peaks$peak
+  logic <- ! current.ids %in% new.ids
+
+  if ( any(logic) ) {
+
+    msg <- paste('The following peaks were found outside the data range',
+                 'and were therefore excluded:')
+    msg <- sprintf('%s\n%s', msg, paste(current.ids[logic]))
+
+    # Issue notification as requested
+    f.error <- function(x) {
+      msg <- paste('"exclusion.notification" must be one "none", "message",',
+                   '"warning", or "stop"')
+      stop(msg)
+    }
+
+    f.notification = switch(exclusion.notification, none = identity,
+                            message = message, warning = warning, stop = stop,
+                            f.error)
+    f.notification(msg)
+  } 
+
+  # Setting peaks
+  object@peaks <- peaks
+
+  object
+})
 
 
 
@@ -798,9 +877,18 @@ setGeneric("bounds",
 setMethod("bounds", "NMRResonance1D", 
   function(object, include.id = FALSE) {
     bounds <- .initialize_bounds(object)@bounds
+
+    lower <- bounds$lower
+    upper <- bounds$upper
+
     if ( include.id ) {
-      bounds$lower <- cbind(resonance = object@id, bounds$lower)
-      bounds$upper <- cbind(resonance = object@id, bounds$upper)
+      if ( nrow(lower) > 0 ) {
+        bounds$lower <- cbind(resonance = object@id, lower)
+      }
+
+      if ( nrow(upper) > 0 ) {
+        bounds$upper <- cbind(resonance = object@id, upper)
+      }
     }
     bounds
   })
@@ -836,120 +924,6 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #==============================================================================>
 
 
-
-#------------------------------------------------------------------------------
-#' Update NMRResonance1D peak parameters
-#' 
-#' This is an internal function whose role is to update existing peak
-#' parameters, while accounting for exclusion criteria and generating relevant
-#' errors/messages.
-#' 
-#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
-#' @param peaks A data frame with "position", "width", "height", and
-#'              "fraction.gauss" columns. Peaks may be defined by one to three
-#'              columns of "peak", "resonance", and "species" depending on the
-#'              nature of the original object.
-#' @param exclusion.level A string specifying what to do when peaks are found to
-#'                        fall outside of the data range: either 'species' to
-#'                        exclude the whole species to which the offending peak
-#'                        belongs, 'resonance' to exclude the resonance to which
-#'                        the offending peak belongs, or 'peak' to exclude just
-#'                        the peak itself.
-#' @param exclusion.action A function specifying what to do when peaks are found
-#'                         to be outside the data range. The default action is
-#'                         to generate a warning message. The function must take
-#'                         two inputs, a string with a notification message and
-#'                         a data.frame of all the excluded peaks.
-#' @inheritParams methodEllipse
-#' 
-#' @return A new object with modified peak parameters.
-#' 
-#' @name update_peaks
-setGeneric("update_peaks", 
-  function(object, ...) {
-    standardGeneric("update_peaks")
-  })
-
-#' @rdname update_peaks
-#' @export
-setMethod("update_peaks", "NMRResonance1D",
-  function(object, peaks, exclusion.level = nmrsession_1d$exclusion$level,
-           exclusion.action = nmrsession_1d$exclusion$action) {
-
-  # Check that columns match before continuing
-  current.peaks <- peaks(object)
-  err <- '"peaks" columns must match those of current peaks data.frame.'
-  if (! all(colnames(peaks) %in% colnames(current.peaks))) stop(err)
-
-  # Isolating ids
-  data.columns <- c('position', 'width', 'height', 'fraction.gauss')
-  all.columns <- colnames(current.peaks)
-  id.columns <- all.columns[! all.columns %in% data.columns]
-
-  # First, check if there are any generic ids missing
-  current.ids <- apply(current.peaks[, id.columns], 1, paste, collapse = '-')
-  new.ids <- apply(peaks[, id.columns], 1, paste, collapse = '-')
-  logic <- ! current.ids %in% new.ids
-
-  if ( any(logic) ) {
-
-    msg <- 'Some peaks were found outside data range and were not updated.'
-    
-    # There are three conditions under which the logic vector will expand
-    # to exclude more terms: exclusion level is species and species are present,
-    # exclusion level is species but only resonances are present, 
-    # exclusion level is resonance and resonances are present, but in this third
-    # case, the print message needs to change to reflect species
-
-    if ( exclusion.level == 'species' ) {
-
-      if ( 'species' %in% id.columns ) {
-        species <- unique(current.peaks$species)
-        logic <- logic | ( current.peaks$species %in% species ) 
-        msg <- sprintf('%s\nThe following species were excluded entirely: %s',
-                       msg, paste(species, collapse = ', '))
-      }
-      else if ( 'resonance' %in% id.columns ) {
-        resonances <- unique(current.peaks$resonance)
-        logic <- logic | ( current.peaks$resonances %in% resonances ) 
-        msg <- sprintf('%s\nThe following resonances were excluded entirely: %s',
-                       msg, paste(resonances, collapse = ', '))
-      }
-    }
-    else if ( exclusion.level == 'resonance' ) {
-
-      # In this case, the ids are built up iteratively
-      if ( 'resonance' %in% id.columns ) {
-        ids <- current.peaks$resonance
-
-        if ( 'species' %in% id.columns ) {
-          ids <- paste(current.peaks$species, ids, paste = '-')
-        }
-
-        pattern <- paste('^', ids, sep = '')
-        logic <- logic | str_detect(current.ids, pattern)
-        msg <- sprintf('%s\nThe following resonances were excluded entirely: %s',
-                       msg, paste(unique(ids[logic]), collapse = ', '))
-      }
-    }
-  }
-  else {
-
-    ids <- current.peaks$peak
-
-    if ( 'resonance' %in% id.columns ) {
-      ids <- paste(current.peaks$resonance, ids, paste = '-')
-    }
-
-    if ( 'species' %in% id.columns ) {
-      ids <- paste(current.peaks$species, ids, paste = '-')
-    }
-
-    msg <- sprintf('%s\nThe following peaks were excluded: %s',
-                     msg, paste(unique(ids[logic]), collapse = ', '))
-  }
-
-})
 
 #------------------------------------------------------------------------------
 #' Initialize peak heights of an NMRResonance1D object
@@ -1471,7 +1445,7 @@ setMethod("f_lineshape", "NMRResonance1D",
     # Otherwise, generate a tbl_df data frame
     else {
       out <- as_tibble(peaks[, which(! colnames(peaks) %in% columns)])
-      if ( include.id ) {
+      if ( include.id && (nrow(out) > 0) ) {
         if ( 'resonance' %in% colnames(out) ) {
           out <- cbind(species = object@id, out)
         }
