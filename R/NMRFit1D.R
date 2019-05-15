@@ -256,8 +256,7 @@ setValidity("NMRFit1D", validNMRFit1D)
 #'                        exclude the whole species to which the offending peak
 #'                        belongs, 'resonance' to exclude the resonance to which
 #'                        the offending peak belongs, or 'peak' to exclude just
-#'                        the peak itself. resonance/species blocks and exclude
-#'                        by specific peak alone.
+#'                        the peak itself. 
 #' @param exclusion.notification A string specifying how to notify the user when
 #'                               peaks are found to be outside the data range:
 #'                               either 'none' to give no notice, 'warning' to
