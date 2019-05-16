@@ -770,8 +770,8 @@ setMethod("update_peaks", "NMRResonance1D",
   if ( any(logic) ) {
 
     msg <- paste('The following peaks were found outside the data range',
-                 'and were therefore excluded:')
-    msg <- sprintf('%s\n%s', msg, paste(current.ids[logic]))
+                 'and were therefore excluded:\n',
+                  paste(current.ids[logic], collapse = ', '))
 
     # Issue notification as requested
     f.error <- function(x) {
@@ -930,7 +930,12 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #' 
 #' Generates peak height estimates based on spectral data. If applied to an
 #' NMRSpecies1D or NMRFit1D object, the same initialization is propagated to
-#' every component resonance.
+#' every component resonance. Since estimates cannot be provided for any peak
+#' outside the given data range, any such peaks are ignored. Whether or not
+#' warning/error messages are generated when that occurs is specified by the
+#' exclusion.notification parameter. Similarly, exclusion.level provided
+#' options to omit the whole resonance/species if a peak is found to be outside
+#' the data bounds.
 #' 
 #' At this point, there is just one approach: take peak height as the intensity
 #' of the data at the current position of the peak. There are plans to develop
@@ -938,6 +943,17 @@ setReplaceMethod("bounds", "NMRResonance1D",
 #' 
 #' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
 #' @param nmrdata An NMRData1D object.
+#' @param exclusion.level A string specifying what to do when peaks are found to
+#'                        fall outside of the data range: either 'species' to
+#'                        exclude the whole species to which the offending peak
+#'                        belongs, 'resonance' to exclude the resonance to which
+#'                        the offending peak belongs, or 'peak' to exclude just
+#'                        the peak itself.
+#' @param exclusion.notification A function specifying how to report when peaks
+#'                               are found to be outside the data range: 'none'
+#'                               to ignore, 'message' to issue a message,
+#'                               'warning' to issue a warning, and 'stop' to
+#'                               issue an error.
 #' @inheritParams methodEllipse
 #' 
 #' @return A new object with modified peak heights.
@@ -952,7 +968,8 @@ setGeneric("initialize_heights",
 #' @rdname initialize_heights
 #' @export
 setMethod("initialize_heights", "NMRResonance1D",
-  function(object, nmrdata) {
+  function(object, nmrdata, exclusion.level = nmrsession_1d$exclusion$level,
+           exclusion.notification = nmrsession_1d$exclusion$notification) {
 
   # Checking nmrdata
   if ( class(nmrdata) != 'NMRData1D' ) {
@@ -963,21 +980,37 @@ setMethod("initialize_heights", "NMRResonance1D",
     validObject(nmrdata)
   }
 
-  # Building a simple interpolating function betwen chemical shift and intensity
+  # Building an interpolating function betwewn chemical shift and intensity
   d <- processed(nmrdata)
-  f <- approxfun(d$direct.shift, d$intensity)
+  f <- approxfun(d$direct.shift, Re(d$intensity))
 
-  # Checking that all peak positions are inside the provided data
-  p <- object@peaks
-  logic <- (p$position > min(d$direct.shift)) & 
-           (p$position < max(d$direct.shift))
+  # Excluding peaks that are outside the data frame
+  peaks <- peaks(object) 
+  logic <- (peaks$position > min(d$direct.shift)) & 
+           (peaks$position < max(d$direct.shift))
 
+  peaks <- peaks[logic, ]
 
   # Generating heights from interpolation
+  peaks$height <- f(peaks$position)
 
-  d$height <- f(d$position)
+  # Updating
+  object.2 <- update_peaks(object, peaks, exclusion.level = exclusion.level,
+                           exclusion.notification = exclusion.notification)
+  peaks.2 <- peaks(object.2)
+  
+  all.columns <- colnames(peaks)
+  data.columns <- c('position', 'width', 'height', 'fraction.gauss')
+  id.columns <- all.columns[! all.columns %in% data.columns]
 
+  peaks <- peaks(object)
+  ids <- apply(peaks[, id.columns], 1, paste, collapse = '-')
+  ids.2 <- apply(peaks.2[, id.columns], 1, paste, collapse = '-')
 
+  peaks[ids %in% ids.2, ] <- peaks.2
+  peaks(object) <- peaks
+
+  object
 })
 
 

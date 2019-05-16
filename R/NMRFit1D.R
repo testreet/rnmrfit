@@ -547,7 +547,7 @@ setMethod("update_peaks", "NMRFit1D",
 
     msg <- paste('The following peaks were found outside the data range',
                  'and were therefore excluded:\n',
-                  paste(current.ids[logic]))
+                  paste(current.ids[logic], collapse = ', '))
 
     # Expanding message based on level
     if ( exclusion.level == 'species' ) {
@@ -556,13 +556,14 @@ setMethod("update_peaks", "NMRFit1D",
       msg <- paste(msg, 
                    '\nBased on the current exclusion.level, the following',
                    'species were further excluded:\n',
-                   paste(removed.species, collapse = ', '))
+                    paste(removed.species, collapse = ', '))
 
       # Removing resonances from updated peaks
       peaks <- filter(peaks, ! species %in% removed.species)
     }
     else if ( exclusion.level == 'resonance' ) {
-      removed.resonances <- unique(current.peaks$resonance[logic])
+      ids <- paste(current.peaks$species, current.peaks$resonance, sep = '-')
+      removed.resonances <- unique(ids[logic])
 
       msg <- paste(msg, 
                    '\nBased on the current exclusion.level, the following',
@@ -847,6 +848,20 @@ setReplaceMethod("phase", "NMRResonance1D",
     validObject(object)
     object 
   })
+
+
+
+#==============================================================================>
+#  Initialization functions (generating parameter estimates based on data)
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' @rdname initialize_heights
+#' @export
+setMethod("initialize_heights", "NMRFit1D",
+          getMethod("initialize_heights", "NMRResonance1D"))
 
 
 

@@ -364,7 +364,7 @@ setMethod("update_peaks", "NMRSpecies1D",
 
     msg <- paste('The following peaks were found outside the data range',
                  'and were therefore excluded:\n',
-                  paste(current.ids[logic]))
+                  paste(current.ids[logic], collapse = ', '))
 
     # Expanding message based on level
     if ( exclusion.level %in% c('resonance', 'species') ) {
@@ -453,6 +453,20 @@ setMethod("bounds", "NMRSpecies1D",
 
     list(lower = lower, upper = upper)
   })
+
+
+
+#==============================================================================>
+#  Initialization functions (generating parameter estimates based on data)
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' @rdname initialize_heights
+#' @export
+setMethod("initialize_heights", "NMRSpecies1D",
+          getMethod("initialize_heights", "NMRResonance1D"))
 
 
 
