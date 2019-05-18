@@ -11,8 +11,11 @@
 #'            to position, width, height, and fraction_gauss.
 #' 
 #' @return complex vector
-#' @export
 lineshape_1d <- function(x, par) {
     .Call('_rnmrfit_lineshape_1d', PACKAGE = 'rnmrfit', x, par)
+}
+
+test_list <- function(x) {
+    invisible(.Call('_rnmrfit_test_list', PACKAGE = 'rnmrfit', x))
 }
 

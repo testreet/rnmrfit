@@ -223,11 +223,9 @@ setValidity("NMRFit1D", validNMRFit1D)
 #' fall outside the data range: either 'species' for whole species, 'resonance'
 #' for just a subset of the species and 'peak' to ignore resonance/species
 #' blocks and exclude by specific peak alone. The exclusion.notification
-#' parameter determines how to respond when peaks are found to be outside the
-#' data range: either 'nothing' to give no notice, 'warning' to issue a
-#' warning, and 'error' to issue an error. A function can also be provided with
-#' a single input, which corresponds to the message text, which can then be
-#' parsed or saved to a log file as desired.
+#' parameter determines how to report when peaks are found to be outside the
+#' data range: either 'none' to give no notice, 'message' to issue a message,
+#' 'warning' to issue a warning, or 'stop' to issue an error.
 #' 
 #' @param species A list of NMRSpecies1D objects or other objects that can be
 #'                converted to NMRSpecies1D objects. See ?nmrresonance_1d and
@@ -256,15 +254,12 @@ setValidity("NMRFit1D", validNMRFit1D)
 #'                        exclude the whole species to which the offending peak
 #'                        belongs, 'resonance' to exclude the resonance to which
 #'                        the offending peak belongs, or 'peak' to exclude just
-#'                        the peak itself. 
-#' @param exclusion.notification A string specifying how to notify the user when
-#'                               peaks are found to be outside the data range:
-#'                               either 'none' to give no notice, 'warning' to
-#'                               issue a warning, and 'error' to issue an error.
-#'                               A function can also be provided with a single
-#'                               input, which corresponds to the message text,
-#'                               which can then be parsed or saved to a log file
-#'                               as desired.
+#'                        the peak itself.
+#' @param exclusion.notification A function specifying how to report when peaks
+#'                               are found to be outside the data range: 'none'
+#'                               to ignore, 'message' to issue a message,
+#'                               'warning' to issue a warning, or 'stop' to
+#'                               issue an error.
 #' @param ... Options passed to nmrspecies_1d if conversion has to be performed.
 #'            See ?nmrspecies_1d for more details.
 #' 
@@ -357,6 +352,79 @@ nmrfit_1d <- function(species, nmrdata,
            exclusion.notification = exclusion.notification)
 
 }
+
+
+
+#==============================================================================>
+#  The main fit function (wrapping Rcpp code)
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' Fit NMR data to peaks.
+#' 
+#' Given an NMRFit1D object, this function performs a least squares fit on the
+#' data and updates the peak parameters. One of the most important things to
+#' consider is that any peak found outside the data range of the NMRData1D
+#' objects is automatically dropped from the resulting object. Exactly how this
+#' happens can be modified using the exclusion.level and exclusion.notification
+#' arguments. The exclusion.level parameter determines which part of the
+#' overall species to exclude if any of its peaks fall outside the data range:
+#' either 'species' for whole species, 'resonance' for just a subset of the
+#' species and 'peak' to ignore resonance/species blocks and exclude by
+#' specific peak alone. The exclusion.notification parameter determines how to
+#' report when peaks are found to be outside the data range: either 'none' to
+#' give no notice, 'message' to issue a message, 'warning' to issue a warning,
+#' or 'stop' to issue an error.
+#' 
+#' @param object An NMRFit1D object.
+#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+#'           to ppm. In most cases, it is recommended to set a single default
+#'           value using nmrsession_1d(sf = ...), but an override can be
+#'           provided here.
+#' @param init A function that takes NMRFit1D object and returns a modified
+#'             NMRFit1D object. Use the "identity" function to override the
+#'             default initialization in the nmrsession_1d$fit$init. Note that
+#'             all arguments provided to the fit() function are also passed on
+#'             the init() function.
+#' @paramo opts A list of NLOPT fit options to override the default options in
+#'              the nmrsession_1d$fit$opts.
+#' @param exclusion.level A string specifying what to do when peaks are found to
+#'                        fall outside of the data range: either 'species' to
+#'                        exclude the whole species to which the offending peak
+#'                        belongs, 'resonance' to exclude the resonance to which
+#'                        the offending peak belongs, or 'peak' to exclude just
+#'                        the peak itself.
+#' @param exclusion.notification A function specifying how to report when peaks
+#'                               are found to be outside the data range: 'none'
+#'                               to ignore, 'message' to issue a message,
+#'                               'warning' to issue a warning, or 'stop' to
+#'                               issue an error.
+#' 
+#' @name fit
+#' @export
+setGeneric("fit", 
+  function(object, ...) {
+    standardGeneric("fit")
+})
+
+#' @rdname fit
+#' @export
+setMethod("fit", "NMRFit1D",
+  function(object, sf = nmrsession_1d('sf'), init = nmrsession_1d$fit$init, 
+           opts = nmrsession_1d$fit$opts, 
+           exclusion.level = nmrsession_1d$exclusion$level,
+           exclusion.notification = nmrsession_1d$fit$notification) {
+
+    # First, run the initialization
+    object <- init(object, sf = sf, init = init, opts = opts, 
+                   exclusion.level = exclusion.level, 
+                   exclusion.notification = exclusion.notification)
+    
+
+  })
+
 
 
 

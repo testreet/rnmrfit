@@ -17,9 +17,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// test_list
+void test_list(const List x);
+RcppExport SEXP _rnmrfit_test_list(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const List >::type x(xSEXP);
+    test_list(x);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rnmrfit_lineshape_1d", (DL_FUNC) &_rnmrfit_lineshape_1d, 2},
+    {"_rnmrfit_test_list", (DL_FUNC) &_rnmrfit_test_list, 1},
     {NULL, NULL, 0}
 };
 
