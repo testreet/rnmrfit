@@ -421,8 +421,195 @@ setMethod("fit", "NMRFit1D",
     object <- init(object, sf = sf, init = init, opts = opts, 
                    exclusion.level = exclusion.level, 
                    exclusion.notification = exclusion.notification)
-    
 
+    # Unpacking some of the NMR data
+    d <- processed(object@nmrdata)
+    x <- object$direct.shift
+    x.range <- range(x)
+    x.span <- x.range[2] - x.range[1]
+    y <- object$intensity
+    y.range <- range(y)
+
+    # Exclude peaks in advance by tying into the update_peaks functions
+    peaks <- peaks(object)
+    logic <- (peaks$position > x.range[1]) & (peaks$position < x.range[2])
+    peaks <- peaks[logic, ]
+
+    object <- update_peaks(object, peaks, exclusion.level = exclusion.level,
+                           exclusion.notification = "none")
+
+    # Scaling and unpacking all parameters
+    data.columns <- c('position', 'width', 'height', 'fraction.guass')
+    lengths <- list(peaks = nrow(peaks)*length(data.columns))
+
+    param <- list(peaks = peaks[, data.colums], 
+                  lb = bounds(object)$lower$peaks[, data.columns], 
+                  ub = bounds(object)$upper$peaks[, data.columns])
+
+    for (name in names(param)) {
+      param$name$position <- (param$name$position - x.range[1])/x.span
+      param$name$width <- param$name$width/sf/x.span
+      param$name$height <- param$name$height/y.range[2]
+
+      param$name <- as.vector(t(as.matrix(param$name)))
+    }
+
+    # Scaling and unpacking baseline/phase terms
+    lengths$baseline <- length(baseline(object))
+    lengths$phase <- length(phase(object))
+
+    baseline <- list(peaks = baseline(object), 
+                     lb = bounds(object)$lower$baseline
+                     ub = bounds(object)$upper$baseline)
+    phase <- list(peaks = phase(object), 
+                     lb = bounds(object)$lower$phase
+                     ub = bounds(object)$upper$phase)
+
+    for (name in names(param)) {
+      baseline$name <- baseline$name/y.range[2]
+      param$name <- c(param$name, Re(baseline$name), Im(baseline$name), 
+                      phase$name)
+    }
+
+    #---------------------------------------
+    # Generating constraint lists
+    # Each element in the list is an encoded constraint in the form of a vector.
+    # The elements are decoded as follows:
+    # 1: Code of either 0, 1, 2. 0 means position, 1, width, 2 area
+    # 2: The equality or inequality target value. 
+    # 3+: Integers corresponding to peak indexes in the overall parameter 
+    #     vector. Positive vs negative values are treated differently depending
+    #     on code. For positions, parameters with negative indexes are  
+    #     subtracted while for width and area, all parameters with negative
+    #     indexes are added up before dividing the positive ones.
+    eq.constraints <- list()
+    ineq.constraints <- list()
+
+    # Redefining peaks from modified object
+    peaks <- peaks(object)
+
+    # To ensure that individual leeway values are considered, looping through
+    # each species/resonance one at a time
+    for (specie in object@species) {
+
+      # At the species level, constraints are based on overall area sums
+      leeway <- abs(specie@connections.leeway)
+
+      # First dealing with conenctions between resonances
+      connections <- specie@connections
+      if ( nrow(connections) > 0 ) {
+        
+        for ( i in 1:length(connections) ) {
+          resonance.1 <- connections$resonance.1[i]
+          resonance.2 <- connections$resonance.2[i]
+          ratio <- connection$area.ratio[i]
+
+          logic <-(specie@id == peaks$species)
+          logic.1 <- logic & (resonance.1 == peaks$resonance)
+          logic.2 <- logic & (resonance.2 == peaks$resonance)
+
+          if ( leeway == 0 ) {
+            new.constraint <- c(2, ratio, which(logic.2), -which(logic.1))
+            eq.constraints <- c(eq.constraints, new.constraint)
+          }
+          else {
+            # The upper bounds
+            new.constraint <- c(2, ratio*(1+leeway), 
+                                which(logic.2), -which(logic.1))
+            ineq.constraints <- c(ineq.constraints, new.constraint)
+
+            # The lower bound
+            new.constraint <- c(2, 1/(ratio*(1-leeway)), 
+                                -which(logic.2), which(logic.1))
+            ineq.constraints <- c(ineq.constraints, new.constraint)
+          }
+        }
+      }
+
+      # Then looping through each specific resonance whithin each species
+      for (resonance in specie@resonances) {
+
+        # At the species level, constraints are based on overall area sums
+        id <- resonance@id
+        position.leeway <- abs(resonance@couplings.leeway$position)
+        width.leeway <- abs(resonance@couplings.leeway$width)
+        area.leeway <- abs(resonance@couplings.leeway$area)
+
+        # Only continue if there are couplings defined
+        couplings <- resonance@couplings
+        if ( nrow(couplings) > 0 ) {
+          
+          for ( i in 1:length(couplings) ) {
+            peak.1 <- couplings$peak.1[i]
+            peak.2 <- couplings$peak.2[i]
+            difference <- connection$position.difference[i]
+            ratio <- connection$area.ratio[i]
+
+            logic <- (specie@id == peaks$species) & 
+                       (resonance@id == peaks$resonance)
+            logic.1 <- logic & (peak.1 == peaks$peak)
+            logic.2 <- logic & (peak.2 == peaks$peak)
+
+            # Each coupling constraint includes position, width, and area
+
+            # First, the position
+            if ( leeway == 0 ) {
+              new.constraint <- c(0, ratio, which(logic.2), -which(logic.1))
+              eq.constraints <- c(eq.constraints, new.constraint)
+            }
+            else {
+              # The upper bounds
+              new.constraint <- c(0, ratio*(1+leeway), 
+                                  which(logic.2), -which(logic.1))
+              ineq.constraints <- c(ineq.constraints, new.constraint)
+
+              # The lower bound
+              new.constraint <- c(0, -ratio*(1-leeway), 
+                                  -which(logic.2), which(logic.1))
+              ineq.constraints <- c(ineq.constraints, new.constraint)
+            }
+
+            # Then, the width
+            if ( leeway == 0 ) {
+              new.constraint <- c(1, ratio, which(logic.2), -which(logic.1))
+              eq.constraints <- c(eq.constraints, new.constraint)
+            }
+            else {
+              # The upper bounds
+              new.constraint <- c(1, ratio*(1+leeway), 
+                                  which(logic.2), -which(logic.1))
+              ineq.constraints <- c(ineq.constraints, new.constraint)
+
+              # The lower bound
+              new.constraint <- c(1, 1/(ratio*(1-leeway)), 
+                                  -which(logic.2), which(logic.1))
+              ineq.constraints <- c(ineq.constraints, new.constraint)
+            }
+
+            # Finally, the area
+            if ( leeway == 0 ) {
+              new.constraint <- c(2, ratio, which(logic.2), -which(logic.1))
+              eq.constraints <- c(eq.constraints, new.constraint)
+            }
+            else {
+              # The upper bounds
+              new.constraint <- c(2, ratio*(1+leeway), 
+                                  which(logic.2), -which(logic.1))
+              ineq.constraints <- c(ineq.constraints, new.constraint)
+
+              # The lower bound
+              new.constraint <- c(2, 1/(ratio*(1-leeway)), 
+                                  -which(logic.2), which(logic.1))
+              ineq.constraints <- c(ineq.constraints, new.constraint)
+            }
+          }
+        }
+      }
+    }
+
+    # For now, just output list of parameters that will be passed down
+    list(peaks = param$peaks, lb = param$lb, ub = param$ub,
+         eq = eq.constraints, ineq = ineq.constraints)
   })
 
 

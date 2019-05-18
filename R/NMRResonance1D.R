@@ -763,9 +763,14 @@ setMethod("update_peaks", "NMRResonance1D",
   if (! all(colnames(peaks) %in% colnames(current.peaks))) stop(err)
 
   # Check for missing peaks
-  current.ids <- current.peaks$peak
-  new.ids <- peaks$peak
-  logic <- ! current.ids %in% new.ids
+  if ( exclusion.level %in% c('resonance', 'species') ) {
+    logic <- rep(TRUE, nrow(current.peaks) )
+  }
+  else {
+    current.ids <- current.peaks$peak
+    new.ids <- peaks$peak
+    logic <- ! current.ids %in% new.ids
+  }
 
   if ( any(logic) ) {
 
@@ -788,6 +793,12 @@ setMethod("update_peaks", "NMRResonance1D",
 
   # Setting peaks
   object@peaks <- peaks
+
+  # Updating bounds to make sure they still relate to peaks
+  bounds <- object@bounds
+  bounds$lower <- bounds$lower[!logic, ]
+  bounds$upper <- bounds$upper[!logic, ]
+  object@bounds <- bounds
 
   object
 })
