@@ -47,10 +47,11 @@ nmrsession_1d <- set_opt(
       init = function (object, ...) {
 
         args <- list(...)[c('exclusion.level', 'exclusion.notification')]
+        args$nmrdata <- object@nmrdata
         args <- c(list(object = object), args)
 
-        object = do.call(initialize_peaks, args)
-        object = set_conservative_bounds(object)
+        object <- do.call(initialize_heights, args)
+        object <- set_conservative_bounds(object, nmrdata = object@nmrdata)
         object
       }
     ),

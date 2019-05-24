@@ -1123,7 +1123,7 @@ setMethod("set_general_bounds", "NMRResonance1D",
     y.range <- max(Re(processed$intensity)) - min(Re(processed$intensity))
     x.range <- max(processed$direct.shift) - min(processed$direct.shift)
 
-    position <- position * x.range
+    position <- position * x.range + min(processed$direct.shift)
     height <- height * y.range
 
     sfo1 <- get_parameter(nmrdata, 'sfo1', 'procs')

@@ -8,8 +8,10 @@ nmrfit_1d(species, nmrdata,
   baseline.order = nmrsession_1d$baseline$order,
   n.knots = nmrsession_1d$baseline$n.knots,
   phase.order = nmrsession_1d$phase$order, delay.fit = FALSE,
-  exclusion.level = "resonance", exclusion.notification = "warning",
-  ...)
+  sf = nmrsession_1d$sf, init = nmrsession_1d$fit$init,
+  opts = nmrsession_1d$fit$opts,
+  exclusion.level = nmrsession_1d$exclusion$level,
+  exclusion.notification = nmrsession_1d$exclusion$notification, ...)
 }
 \arguments{
 \item{species}{A list of NMRSpecies1D objects or other objects that can be
@@ -40,6 +42,20 @@ the NMRFit1D object is initialized, TRUE to skip the
 optimization, enabling more customization. The fit can be
 run manually using fit().}
 
+\item{sf}{Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+to ppm. In most cases, it is recommended to set a single default
+value using nmrsession_1d(sf = ...), but an override can be
+provided here.}
+
+\item{init}{An initialization, function that takes an NMRFit1D object and
+returns a modified NMRFit1D object. Use the "identity" function
+to override the default initialization in the
+nmrsession_1d$fit$init. Note that all arguments provided to the
+fit() function are also passed on the init() function.}
+
+\item{opts}{A list of NLOPT fit options to override the default options in
+the nmrsession_1d$fit$opts.}
+
 \item{exclusion.level}{A string specifying what to do when peaks are found to
 fall outside of the data range: either 'species' to
 exclude the whole species to which the offending peak
@@ -47,14 +63,11 @@ belongs, 'resonance' to exclude the resonance to which
 the offending peak belongs, or 'peak' to exclude just
 the peak itself.}
 
-\item{exclusion.notification}{A string specifying how to notify the user when
-peaks are found to be outside the data range:
-either 'none' to give no notice, 'warning' to
-issue a warning, and 'error' to issue an error.
-A function can also be provided with a single
-input, which corresponds to the message text,
-which can then be parsed or saved to a log file
-as desired.}
+\item{exclusion.notification}{A function specifying how to report when peaks
+are found to be outside the data range: 'none'
+to ignore, 'message' to issue a message,
+'warning' to issue a warning, or 'stop' to
+issue an error.}
 
 \item{...}{Options passed to nmrspecies_1d if conversion has to be performed.
 See ?nmrspecies_1d for more details.}
@@ -75,9 +88,7 @@ determines which part of the overall species to exclude if any of its peaks
 fall outside the data range: either 'species' for whole species, 'resonance'
 for just a subset of the species and 'peak' to ignore resonance/species
 blocks and exclude by specific peak alone. The exclusion.notification
-parameter determines how to respond when peaks are found to be outside the
-data range: either 'nothing' to give no notice, 'warning' to issue a
-warning, and 'error' to issue an error. A function can also be provided with
-a single input, which corresponds to the message text, which can then be
-parsed or saved to a log file as desired.
+parameter determines how to report when peaks are found to be outside the
+data range: either 'none' to give no notice, 'message' to issue a message,
+'warning' to issue a warning, or 'stop' to issue an error.
 }

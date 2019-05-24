@@ -249,6 +249,17 @@ setValidity("NMRFit1D", validNMRFit1D)
 #'                  the NMRFit1D object is initialized, TRUE to skip the
 #'                  optimization, enabling more customization. The fit can be
 #'                  run manually using fit().
+#' @param sf Sweep frequency (in MHz) -- needed to convert peak widths from Hz
+#'           to ppm. In most cases, it is recommended to set a single default
+#'           value using nmrsession_1d(sf = ...), but an override can be
+#'           provided here.
+#' @param init An initialization, function that takes an NMRFit1D object and
+#'             returns a modified NMRFit1D object. Use the "identity" function
+#'             to override the default initialization in the
+#'             nmrsession_1d$fit$init. Note that all arguments provided to the
+#'             fit() function are also passed on the init() function.
+#' @param opts A list of NLOPT fit options to override the default options in
+#'             the nmrsession_1d$fit$opts.
 #' @param exclusion.level A string specifying what to do when peaks are found to
 #'                        fall outside of the data range: either 'species' to
 #'                        exclude the whole species to which the offending peak
@@ -266,13 +277,14 @@ setValidity("NMRFit1D", validNMRFit1D)
 #' @return An NMRFit1D object.
 #' 
 #' @export
-nmrfit_1d <- function(species, nmrdata,
-                      baseline.order = nmrsession_1d$baseline$order,
-                      n.knots = nmrsession_1d$baseline$n.knots, 
-                      phase.order = nmrsession_1d$phase$order, 
-                      delay.fit = FALSE,
-                      exclusion.level = 'resonance', 
-                      exclusion.notification = 'warning', ...) {
+nmrfit_1d <- function(
+  species, nmrdata, baseline.order = nmrsession_1d$baseline$order,
+  n.knots = nmrsession_1d$baseline$n.knots, 
+  phase.order = nmrsession_1d$phase$order, 
+  delay.fit = FALSE, sf = nmrsession_1d$sf,
+  init = nmrsession_1d$fit$init, opts = nmrsession_1d$fit$opts, 
+  exclusion.level = nmrsession_1d$exclusion$level, 
+  exclusion.notification = nmrsession_1d$exclusion$notification, ...) {
 
   #---------------------------------------
   # Generating list of species 
@@ -348,7 +360,8 @@ nmrfit_1d <- function(species, nmrdata,
 
   # If the fit is delayed, then return current object, otherwise fun fit first
   if ( delay.fit ) out
-  else fit(out, exclusion.level = exclusion.level, 
+  else fit(out, sf = sf, init = init, opts = opts, 
+           exclusion.level = exclusion.level, 
            exclusion.notification = exclusion.notification)
 
 }
@@ -383,13 +396,13 @@ nmrfit_1d <- function(species, nmrdata,
 #'           to ppm. In most cases, it is recommended to set a single default
 #'           value using nmrsession_1d(sf = ...), but an override can be
 #'           provided here.
-#' @param init A function that takes NMRFit1D object and returns a modified
-#'             NMRFit1D object. Use the "identity" function to override the
-#'             default initialization in the nmrsession_1d$fit$init. Note that
-#'             all arguments provided to the fit() function are also passed on
-#'             the init() function.
-#' @paramo opts A list of NLOPT fit options to override the default options in
-#'              the nmrsession_1d$fit$opts.
+#' @param init An initialization function that takes NMRFit1D object and returns
+#'             a modified NMRFit1D object. Use the "identity" function to
+#'             override the default initialization in the
+#'             nmrsession_1d$fit$init. Note that all arguments provided to the
+#'             fit() function are also passed on the init() function.
+#' @param opts A list of NLOPT fit options to override the default options in
+#'             the nmrsession_1d$fit$opts.
 #' @param exclusion.level A string specifying what to do when peaks are found to
 #'                        fall outside of the data range: either 'species' to
 #'                        exclude the whole species to which the offending peak
@@ -415,7 +428,7 @@ setMethod("fit", "NMRFit1D",
   function(object, sf = nmrsession_1d('sf'), init = nmrsession_1d$fit$init, 
            opts = nmrsession_1d$fit$opts, 
            exclusion.level = nmrsession_1d$exclusion$level,
-           exclusion.notification = nmrsession_1d$fit$notification) {
+           exclusion.notification = nmrsession_1d$exclusion$notification) {
 
     # First, run the initialization
     object <- init(object, sf = sf, init = init, opts = opts, 
@@ -424,11 +437,11 @@ setMethod("fit", "NMRFit1D",
 
     # Unpacking some of the NMR data
     d <- processed(object@nmrdata)
-    x <- object$direct.shift
+    x <- d$direct.shift
     x.range <- range(x)
     x.span <- x.range[2] - x.range[1]
-    y <- object$intensity
-    y.range <- range(y)
+    y <- d$intensity
+    y.range <- range(Re(y))
 
     # Exclude peaks in advance by tying into the update_peaks functions
     peaks <- peaks(object)
@@ -439,36 +452,40 @@ setMethod("fit", "NMRFit1D",
                            exclusion.notification = "none")
 
     # Scaling and unpacking all parameters
-    data.columns <- c('position', 'width', 'height', 'fraction.guass')
+    data.columns <- c('position', 'width', 'height', 'fraction.gauss')
     lengths <- list(peaks = nrow(peaks)*length(data.columns))
 
-    param <- list(peaks = peaks[, data.colums], 
+    param <- list(peaks = peaks[, data.columns], 
                   lb = bounds(object)$lower$peaks[, data.columns], 
                   ub = bounds(object)$upper$peaks[, data.columns])
 
     for (name in names(param)) {
-      param$name$position <- (param$name$position - x.range[1])/x.span
-      param$name$width <- param$name$width/sf/x.span
-      param$name$height <- param$name$height/y.range[2]
+      param[[name]]$position <- (param[[name]]$position - x.range[1])/x.span
+      param[[name]]$width <- param[[name]]$width/sf/x.span
+      param[[name]]$height <- param[[name]]$height/y.range[2]
 
-      param$name <- as.vector(t(as.matrix(param$name)))
+      param[[name]] <- as.vector(t(as.matrix(param[[name]])))
     }
 
     # Scaling and unpacking baseline/phase terms
-    lengths$baseline <- length(baseline(object))
-    lengths$phase <- length(phase(object))
+    n.baseline <- length(baseline(object))
+    lengths$baseline <- n.baseline
+    n.phase <- length(phase(object))
+    lengths$phase <- n.phase
 
+    # Scaling performed below for conv
     baseline <- list(peaks = baseline(object), 
-                     lb = bounds(object)$lower$baseline
-                     ub = bounds(object)$upper$baseline)
+                     lb = rep(bounds(object)$lower$baseline, n.baseline),
+                     ub = rep(bounds(object)$upper$baseline, n.baseline))
+
+    # Technically speaking, the bound on phase is a constraint, not a bound
     phase <- list(peaks = phase(object), 
-                     lb = bounds(object)$lower$phase
-                     ub = bounds(object)$upper$phase)
+                     lb = rep(-Inf, n.phase),
+                     ub = rep(Inf, n.phase))
 
     for (name in names(param)) {
-      baseline$name <- baseline$name/y.range[2]
-      param$name <- c(param$name, Re(baseline$name), Im(baseline$name), 
-                      phase$name)
+      param[[name]] <- c(param[[name]], Re(baseline[[name]])/y.range[2], 
+                         Im(baseline[[name]])/y.range[2], phase[[name]])
     }
 
     #---------------------------------------
@@ -499,10 +516,10 @@ setMethod("fit", "NMRFit1D",
       connections <- specie@connections
       if ( nrow(connections) > 0 ) {
         
-        for ( i in 1:length(connections) ) {
+        for ( i in 1:nrow(connections) ) {
           resonance.1 <- connections$resonance.1[i]
           resonance.2 <- connections$resonance.2[i]
-          ratio <- connection$area.ratio[i]
+          ratio <- connections$area.ratio[i]
 
           logic <-(specie@id == peaks$species)
           logic.1 <- logic & (resonance.1 == peaks$resonance)
@@ -510,18 +527,18 @@ setMethod("fit", "NMRFit1D",
 
           if ( leeway == 0 ) {
             new.constraint <- c(2, ratio, which(logic.2), -which(logic.1))
-            eq.constraints <- c(eq.constraints, new.constraint)
+            eq.constraints <- c(eq.constraints, list(new.constraint))
           }
           else {
             # The upper bounds
             new.constraint <- c(2, ratio*(1+leeway), 
                                 which(logic.2), -which(logic.1))
-            ineq.constraints <- c(ineq.constraints, new.constraint)
+            ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
             # The lower bound
             new.constraint <- c(2, 1/(ratio*(1-leeway)), 
                                 -which(logic.2), which(logic.1))
-            ineq.constraints <- c(ineq.constraints, new.constraint)
+            ineq.constraints <- c(ineq.constraints, list(new.constraint))
           }
         }
       }
@@ -539,11 +556,11 @@ setMethod("fit", "NMRFit1D",
         couplings <- resonance@couplings
         if ( nrow(couplings) > 0 ) {
           
-          for ( i in 1:length(couplings) ) {
+          for ( i in 1:nrow(couplings) ) {
             peak.1 <- couplings$peak.1[i]
             peak.2 <- couplings$peak.2[i]
-            difference <- connection$position.difference[i]
-            ratio <- connection$area.ratio[i]
+            diff <- couplings$position.difference[i]/x.span
+            ratio <- couplings$area.ratio[i]
 
             logic <- (specie@id == peaks$species) & 
                        (resonance@id == peaks$resonance)
@@ -553,54 +570,57 @@ setMethod("fit", "NMRFit1D",
             # Each coupling constraint includes position, width, and area
 
             # First, the position
+            leeway <- position.leeway
             if ( leeway == 0 ) {
-              new.constraint <- c(0, ratio, which(logic.2), -which(logic.1))
-              eq.constraints <- c(eq.constraints, new.constraint)
+              new.constraint <- c(0, diff, which(logic.2), -which(logic.1))
+              eq.constraints <- c(eq.constraints, list(new.constraint))
             }
             else {
               # The upper bounds
-              new.constraint <- c(0, ratio*(1+leeway), 
+              new.constraint <- c(0, diff*(1+leeway), 
                                   which(logic.2), -which(logic.1))
-              ineq.constraints <- c(ineq.constraints, new.constraint)
+              ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
               # The lower bound
-              new.constraint <- c(0, -ratio*(1-leeway), 
+              new.constraint <- c(0, -diff*(1-leeway), 
                                   -which(logic.2), which(logic.1))
-              ineq.constraints <- c(ineq.constraints, new.constraint)
+              ineq.constraints <- c(ineq.constraints, list(new.constraint))
             }
 
             # Then, the width
+            leeway <- width.leeway
             if ( leeway == 0 ) {
               new.constraint <- c(1, ratio, which(logic.2), -which(logic.1))
-              eq.constraints <- c(eq.constraints, new.constraint)
+              eq.constraints <- c(eq.constraints, list(new.constraint))
             }
             else {
               # The upper bounds
               new.constraint <- c(1, ratio*(1+leeway), 
                                   which(logic.2), -which(logic.1))
-              ineq.constraints <- c(ineq.constraints, new.constraint)
+              ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
               # The lower bound
               new.constraint <- c(1, 1/(ratio*(1-leeway)), 
                                   -which(logic.2), which(logic.1))
-              ineq.constraints <- c(ineq.constraints, new.constraint)
+              ineq.constraints <- c(ineq.constraints, list(new.constraint))
             }
 
             # Finally, the area
+            leeway <- area.leeway
             if ( leeway == 0 ) {
               new.constraint <- c(2, ratio, which(logic.2), -which(logic.1))
-              eq.constraints <- c(eq.constraints, new.constraint)
+              eq.constraints <- c(eq.constraints, list(new.constraint))
             }
             else {
               # The upper bounds
               new.constraint <- c(2, ratio*(1+leeway), 
                                   which(logic.2), -which(logic.1))
-              ineq.constraints <- c(ineq.constraints, new.constraint)
+              ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
               # The lower bound
               new.constraint <- c(2, 1/(ratio*(1-leeway)), 
                                   -which(logic.2), which(logic.1))
-              ineq.constraints <- c(ineq.constraints, new.constraint)
+              ineq.constraints <- c(ineq.constraints, list(new.constraint))
             }
           }
         }
@@ -610,6 +630,9 @@ setMethod("fit", "NMRFit1D",
     # For now, just output list of parameters that will be passed down
     list(peaks = param$peaks, lb = param$lb, ub = param$ub,
          eq = eq.constraints, ineq = ineq.constraints)
+
+    # The final list will also include:
+    # n.peaks, n.baseline, n.phase, x, y, basis (matrix), components
   })
 
 
