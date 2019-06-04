@@ -9,17 +9,11 @@
 Although 1D intensity can be represented by a single real/imaginary complex
 pair, there is no built-in representation for 2D (or higher dimension) data
 that may consist of real-real, real-imaginary, imaginary-real, and
-imaginary-imaginary components. This class serves as a simple container list
-that can be used to retrieve specific sets of values as required. Re() and
-Im() can be used to obtain pure real and pure imaginary compenents, whereas
-other specific real/imaginary can be are accesible via indexing. For 2D
-data, for example, $rr will output a numeric vector corresponding to the
-real-real data (equivalent to Re()).
+imaginary-imaginary components. This class approximates the extension of a
+complex values to multiple dimensions be defining a vector, where each
+element corresponds to a specific real-imaginary component. Re() and Im()
+functions can still be used to obtain pure real and pure imaginary
+compenents, whereas other specific real/imaginary can be are accesible with
+the $ function. For 2D data, for example, $rr will output a numeric vector
+corresponding to the real-real data (equivalent to Re()).
 }
-\section{Slots}{
-
-\describe{
-\item{\code{columns}}{Defines the real/imaginary composition of each elemnt as a
-series of "r" and "i" values.}
-}}
-

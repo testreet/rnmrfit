@@ -16,7 +16,7 @@ Depends:
     splines,
     stringr (>= 1.0.0),
     tidyr (>= 0.6.0)
-Imports: Rcpp
+Imports: Rcpp, pillar
 LinkingTo: Rcpp
 License: Apache (>= 2.0)
 LazyData: true

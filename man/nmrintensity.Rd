@@ -2,14 +2,16 @@
 % Please edit documentation in R/NMRIntensity.R
 \name{nmrintensity}
 \alias{nmrintensity}
-\title{Generate an NMRIntensity object}
+\title{Generate an NMRIntensity or NMRIntensities object}
 \usage{
 nmrintensity(...)
 }
 \arguments{
-\item{...}{A collection of vector, matrix, or data.frame objects. Vectors must be specified with names whereas the component names for matrix and data.frame objects are taken from their column names.}
+\item{...}{A collection of vector, matrix, or data.frame objects. Vectors
+must be specified with names whereas the component names for
+matrix and data.frame objects are taken from their column names.}
 }
 \description{
-Generates an NMRIntensity object from a series of vector, matrix, or
-data.frame object.
+Generates an NMRIntensity or plural NMRIntensities object from a series of
+vector, matrix, or data.frame inputs.
 }
