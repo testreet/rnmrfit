@@ -3,13 +3,10 @@
 \docType{methods}
 \name{show,NMRIntensities-method}
 \alias{show,NMRIntensities-method}
-\title{Show an NMRIntensity object}
+\title{Show an NMRIntensities object}
 \usage{
 \S4method{show}{NMRIntensities}(object)
 }
-\arguments{
-\item{object}{An NMRIntensity object.}
-}
 \description{
-A concise display for NMRIntensity.
+Show an NMRIntensities object
 }
