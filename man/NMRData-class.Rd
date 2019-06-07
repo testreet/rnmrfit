@@ -4,19 +4,28 @@
 \name{NMRData-class}
 \alias{NMRData-class}
 \alias{NMRData}
-\title{Super class combining NMR data and scan parameters.}
+\title{Super class combining NMR data and scan parameters}
 \description{
-See NMRData1D or NMRData2D.
+Fourier transformed data is stored as a tibble (data.frame-like structure)
+in the processed slot with the acquisition and processing parameters stored
+as lists in separate slots. If the data is loaded from a JCAMP-DX file
+without clear "acqus" and "procs" division, the parameters are stored in a
+generic parameters list slot. Both parameter lists and chemical shift data
+is clearly divided into "direct" or "indirect" components. If the data is
+1D, the "indirect" component is either omitted or NULL.
 }
 \section{Slots}{
 
 \describe{
-\item{\code{processed}}{A data.frame containing chemical shift and intensity data.}
+\item{\code{processed}}{A tibble containing chemical shift and intensity data.}
 
-\item{\code{parameters}}{A list of generic parameters.}
+\item{\code{parameters}}{A list of generic parameters, divided into "direct" and
+"indirect" dimension components.}
 
-\item{\code{acqus}}{A list of parameters specific to acqus file.}
+\item{\code{acqus}}{A list of parameters specific to acqus file, divided into
+"direct" and "indirect" dimension components.}
 
-\item{\code{procs}}{A list of parameters sepcific to procs file.}
+\item{\code{procs}}{A list of parameters sepcific to procs file, divided into
+"direct" and "indirect" dimension components.}
 }}
 

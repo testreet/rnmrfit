@@ -2,32 +2,41 @@
 % Please edit documentation in R/NMRData1D.R
 \name{nmrdata_1d}
 \alias{nmrdata_1d}
-\title{Constructor for generating an NMRData1D object}
+\alias{nmrdata_1d_from_pdata}
+\alias{nmrdata_1d_from_jcamp}
+\title{Constructors for generating an NMRData1D object}
 \usage{
-nmrdata_1d(path, procs.number = NA, blocks.number = NA,
-  ntuples.number = NA)
+nmrdata_1d(path, procs.number = NA, blocks.number = 1,
+  ntuples.number = 1)
+
+nmrdata_1d_from_pdata(path, procs.number = NA)
+
+nmrdata_1d_from_jcamp(path, blocks.number = 1, ntuples.number = 1)
 }
 \arguments{
-\item{path}{Path to a Bruker scan directory or JCAMP file.}
+\item{path}{Path to a Bruker scan directory or JCAMP-DX file.}
 
-\item{procs.number}{Specifies processing file number to use when loading from
-a Bruker scan directory. Defaults to the smallest number
-in the pdata directory. Ignored if loading from a JCAMP
+\item{procs.number}{Specifies pdata directory to load. Defaults to the lowest
+available number. Ignored if loading from a JCAMP-DX
 file.}
 
-\item{blocks.number}{Specifies block number to use when loading from a JCAMP
-file. Defaults to the first block encountered. Ignored
-if loading from Bruker directory.}
+\item{blocks.number}{Specifies block number to use when loading from a JCAMP-
+DX file. Defaults to the first block encountered.
+Ignored if loading from a pdata directory.}
 
 \item{ntuples.number}{Specifies ntuple entry number to use when loading from
-a JCAMP file. Defaults to the first ntuple entry
-encountered. Ignored if loading from Bruker directory.}
+a JCAMP-DX file. Defaults to the first ntuple entry
+encountered. Ignored if loading from a pdata directory.}
 }
 \value{
-An NMRData1D object containing the 1r/1i processed data as well as
-        the procs and acqus parameters.
+An NMRData1D object.
 }
 \description{
-Loads data in JCAMP file or Bruker directory and uses it to initialize an
-NMRData1D object.
+\code{nmrdata_1d()} can be used as a generic constructor method that handles
+different types of input (currently limited to Bruker pdata directories and
+JCAMP=DX files). If the input path points to a file, it is assumed to be a
+JCAMP-DX file, and if the input path points to a directory, it is assumed to
+be Bruker scan directory. The specific constructor functions can also be
+called using \code{nmrdata_1d_from_pdata()} or
+\code{nmrdata_1d_from_jcamp()}.
 }

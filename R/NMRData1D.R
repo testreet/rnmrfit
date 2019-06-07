@@ -5,63 +5,37 @@
 #------------------------------------------------------------------------------
 #' A class combining NMR data and scan parameters
 #' 
-#' Although it's likely to change in the near future, this class currently
-#' serves to combine processed 1D data from the pdata folder of an experiment
-#' with the acqus and procs parameter files.
+#' An extension of the generic NMRData class to provide 1D-specific methods
+#' such as constructors and plotting.
 #' 
-#' @slot processed 1r/1i data stored as a data.frame with direct.shift and
-#'                 intensity as columns.
-#' @slot acqus A list of acqus parameters.
-#' @slot procs A list of procs parameters.
-#' @slot product A vector representation of an apodization function that was
-#'               used to generate the intensity data (in this context, zero-
-#'               filling is considered to be the equivalent of apodization by a
-#'               step function). To facilitate convolution, the length of this
-#'               vector is set to 2*n - 1 where n is the number of spectrum
-#'               points.
-#' @slot convolution The Fourier transform of the product slot, suitable for
-#'                   convolution with the spectrum intensity data.
-#' 
-#' @name NMRData1D-class
+#' @rdname NMRData1D
 #' @export
-NMRData1D <- setClass("NMRData1D", 
-                      contains = "NMRData",
-                      slots = c(product = 'numeric',
-                                convolution = 'numeric'))
+NMRData1D <- setClass("NMRData1D", contains = "NMRData")
 
 # Validity testing consists of simply checking the processed data.frame columns
 validNMRData1D <- function(object) {
 
-  valid <- TRUE
-  msg <- c()
-
   processed <- object@processed
-  product <- object@product
-  convolution <- object@convolution
+  acqus <- object@acqus
+  procs <- object@procs
 
-  # Checking column names
-  valid.columns <- c('direct.shift', 'intensity')
-  new.msg <- sprintf('Processed data must have two columns: %s',
-                     paste(valid.columns, collapse = ', '))
-
-  if (! identical(valid.columns, colnames(processed)) ) {
+  # All of the generic validity checks apply here
+  prior <- validNMRData()
+  if ( identical(out, TRUE) ) {
+    valid <- TRUE
+    err <- c()
+  } else {
     valid <- FALSE
-    msg <- c(msg, new.msg)
+    err <- prior
   }
 
-  # Checking convolution length
-  new.msg <- paste('If not empty, "convolution" and "product" slots must',
-                   'have 2*n - 1 elements where n is the number of points in',
-                   'the "processed" data.frame')
-
-  if ( (length(product) > 0) || (length(convolution) > 0) ) {
-
-    n <- nrow(processed)
-    if ( (length(product) != (2*n-1)) || (length(convolution) != (2*n-1)) ) {
-      valid <- FALSE
-      msg <- c(msg, new.msg)
-    }
-
+  # Checking processed columns
+  valid.columns <- c('direct.shift', 'intensity')
+  msg <- sprintf('Processed data may only have the following columns: %s',
+                 paste(valid.columns, collapse = ', '))
+  if (! identical(valid.columns, colnames(processed)) ) {
+    valid <- FALSE
+    err <- c(err, msg)
   }
 
   if ( valid ) TRUE
@@ -72,158 +46,181 @@ setValidity("NMRData1D", validNMRData1D)
 
 
 
+#==============================================================================>
+#  Constructors and data loading
+#==============================================================================>
+
+
+
 #------------------------------------------------------------------------------
-#' Constructor for generating an NMRData1D object
+#' Constructors for generating an NMRData1D object
 #' 
-#' Loads data in JCAMP file or Bruker directory and uses it to initialize an
-#' NMRData1D object.
+#' \code{nmrdata_1d()} can be used as a generic constructor method that handles
+#' different types of input (currently limited to Bruker pdata directories and
+#' JCAMP=DX files). If the input path points to a file, it is assumed to be a
+#' JCAMP-DX file, and if the input path points to a directory, it is assumed to
+#' be Bruker scan directory. The specific constructor functions can also be
+#' called using \code{nmrdata_1d_from_pdata()} or
+#' \code{nmrdata_1d_from_jcamp()}.
 #' 
-#' @param path Path to a Bruker scan directory or JCAMP file.
-#' @param procs.number Specifies processing file number to use when loading from
-#'                     a Bruker scan directory. Defaults to the smallest number
-#'                     in the pdata directory. Ignored if loading from a JCAMP
+#' @param path Path to a Bruker scan directory or JCAMP-DX file.
+#' @param procs.number Specifies pdata directory to load. Defaults to the lowest
+#'                     available number. Ignored if loading from a JCAMP-DX
 #'                     file.
-#' @param blocks.number Specifies block number to use when loading from a JCAMP
-#'                      file. Defaults to the first block encountered. Ignored
-#'                      if loading from Bruker directory.
+#' @param blocks.number Specifies block number to use when loading from a JCAMP-
+#'                      DX file. Defaults to the first block encountered.
+#'                      Ignored if loading from a pdata directory.
 #' @param ntuples.number Specifies ntuple entry number to use when loading from
-#'                       a JCAMP file. Defaults to the first ntuple entry
-#'                       encountered. Ignored if loading from Bruker directory.
+#'                       a JCAMP-DX file. Defaults to the first ntuple entry
+#'                       encountered. Ignored if loading from a pdata directory.
 #' 
-#' @return An NMRData1D object containing the 1r/1i processed data as well as
-#'         the procs and acqus parameters.
+#' @return An NMRData1D object.
 #' 
 #' @export
 nmrdata_1d <- function(path, procs.number = NA, 
-                       blocks.number = NA, ntuples.number = NA) {
+                       blocks.number = 1, ntuples.number = 1) {
 
-  # If file exists at path, treating import as JCAMP, otherwise, Bruker scan
-  if ( file.exists(path) && !dir.exists(path) ) {
-    # Load jcamp
-    jcamp <- read_jcamp(path, process.tags = TRUE, process.entries = TRUE)
-
-    # If block number specified, check if it's valid
-    if (! is.na(blocks.number) ) {
-      # Double check that specified block exists
-      msg <- sprintf("Specified block number not found in %s", path)
-      if ( blocks.number > length(jcamp$blocks) ) stop(msg)
-    }
-    else {
-      blocks.number <- 1
-    }
-
-    jcamp$blocks <- jcamp$blocks[blocks.number]
-
-    # Check to make sure that ntuples exist
-    msg <- 'Import from JCAMP file currently limited to NTUPLES entries'
-    if (! 'ntuples' %in% names(jcamp$blocks[[1]]) ) stop(msg)
-
-    # If ntuple number specified, check if it's valid
-    if (! is.na(ntuples.number) ) {
-      # Double check that specified block exists
-      msg <- sprintf('Specified NTUPLES number not found in block %i of %s', 
-                     blocks.number, path)
-      if ( ntuples.number > length(jcamp$blocks[[1]]) ) stop(msg)
-    }
-    else {
-      ntuples.number <- 1
-    }
-
-    jcamp$blocks[[1]]$ntuples <- jcamp$blocks[[1]]$ntuples[ntuples.number]
-
-    # Flattening file
-    jcamp.flat <- flatten_jcamp(jcamp)
-
-    # Extracting processed data from ntuples
-    descriptors <- jcamp.flat$ntuples$descriptors
-    pages <- jcamp.flat$ntuples$pages
-
-    # Checking variable names
-    variables <- tolower(descriptors$var.name)
-    real.index <- which(str_detect(variables, 'spectrum.*real'))
-    imag.index <- which(str_detect(variables, 'spectrum.*imag'))
-
-    # If both real and imaginary data isn't there, abort
-    msg <- 'Import from JCAMP file currently limited to real/imaginary spectra'
-    if ( length(c(real.index, imag.index)) < 2 ) stop(msg)
-
-    # Double check that the first entry is frequency
-    msg <- 'Import from JCAMP file currently limited to frequency abscissa'
-    if (! str_detect(variables[1], 'freq') ) stop(msg)
-
-    # Proceed to extract data
-    real.data <- pages[[real.index - 1]]
-    imag.data <- pages[[imag.index - 1]]
-
-    # Checking that frequency is the same
-    real.frequency <- real.data[, 1]
-    imag.frequency <- imag.data[, 1]
-    msg <- 'Mismatch in real and imaginary frequency, likely parsing error'
-    if ( any(abs(real.frequency - imag.frequency) > 1e-6) ) stop(msg)
-
-    # Starting with raw values
-    frequency <- real.frequency
-    real.data <- real.data[, 2]
-    imag.data <- imag.data[, 2]
-
-    # Scaling if factors is non zero
-    scale <- descriptors$factor[1]
-    if (scale > 1e-6) frequency <- frequency*scale
-
-    scale <- descriptors$factor[real.index]
-    if (scale > 1e-6) real.data <- real.data*scale
-
-    scale <- descriptors$factor[imag.index]
-    if (scale > 1e-6) imag.data <- imag.data*scale
-
-    # Offsetting if max-min difference is non zero
-    d.max <- descriptors$max[1]
-    d.min <- descriptors$min[1]
-    if ( (d.max - d.min) > 1e-6 ) {
-      frequency <- frequency - max(frequency) + d.max
-    }
-
-    d.max <- descriptors$max[real.index]
-    d.min <- descriptors$min[real.index]
-    if ( (d.max - d.min) > 1e-6 ) {
-      real.data <- real.data - max(real.data) + d.max
-    }
-
-    d.max <- descriptors$max[imag.index]
-    d.min <- descriptors$min[imag.index]
-    if ( (d.max - d.min) > 1e-6 ) {
-      imag.data <- imag.data - max(imag.data) + d.max
-    }
-
-    # Doing one final check on the direct shift to check on offset
-    direct.shift <- frequency/jcamp.flat$sf
-    
-    delta <- jcamp.flat$offset - max(direct.shift)
-    if ( abs(delta) > 1e-6 ) direct.shift <- direct.shift + delta
-
-    # Finally, combine the data
-    intensity <- complex(real = real.data, imaginary = imag.data)
-    processed <- data.frame(direct.shift = direct.shift,
-                            intensity = intensity)
-
-    # Returning class object
-    new("NMRData1D", processed = processed, parameters = jcamp.flat,
-                     procs = list(), acqus = list())       
+  # If path is a valid directory, treat as Bruker scan directory
+  if ( file.exists(path) && dir.exists(path) ) {
+    nmrdata_1d_from_pdata(path, procs.number) 
   }
+  # If it's not a directory, it might be a file
+  else if ( file.exists(path) )  {
+    nmrdata_1d_from_jcamp(path, blocks.number, ntuples.number)
+  }
+  # Otherwise, error out
   else {
-    # First, loading procs parameters
-    procs <- read_procs_1d(path, procs.number)
-
-    # Using the procs file to load the processed data
-    processed <- read_processed_1d(path, procs, procs.number)
-
-    # Finally, loading the general acquisition parameters
-    acqus <- read_acqus_1d(path)
-
-    # Returning class object
-    new("NMRData1D", processed = processed, parameters = list(),
-                     procs = procs, acqus = acqus)
+    err <- sprintf('Path "%s" does not point to a file or directory', path)
+    stop(err)
   }
+
+}
+
+
+
+#------------------------------------------------------------------------------
+#' @rdname nmrdata_1d
+#' @export
+nmrdata_1d_from_pdata <- function(path, procs.number = NA) {
+
+  # First, loading procs parameters
+  procs <- read_procs_1d(path, procs.number)
+
+  # Using the procs file to load the processed data
+  processed <- read_processed_1d(path, procs, procs.number)
+
+  # Finally, loading the general acquisition parameters
+  acqus <- read_acqus_1d(path)
+
+  # Returning class object
+  new("NMRData1D", processed = processed, parameters = list(),
+                   procs = procs, acqus = acqus)
+
+}
+
+
+
+#------------------------------------------------------------------------------
+#' @rdname nmrdata_1d
+#' @export
+nmrdata_1d_from_jcamp <- function(path, blocks.number = 1, ntuples.number = 1) {
+
+  jcamp <- read_jcamp(path, process.tags = TRUE, process.entries = TRUE)
+
+  # Double check that specified block exists
+  err <- sprintf("Specified block number not found in %s", path)
+  if ( blocks.number > length(jcamp$blocks) ) stop(err)
+
+  jcamp$blocks <- jcamp$blocks[blocks.number]
+
+  # Check to make sure that ntuples exist
+  err <- 'Import from JCAMP file currently limited to NTUPLES entries'
+  if (! 'ntuples' %in% names(jcamp$blocks[[1]]) ) stop(err)
+
+  # Double check that specified ntuple exists
+  err <- sprintf('Specified NTUPLES number not found in block %i of %s', 
+                 ntuples.number, path)
+  if ( ntuples.number > length(jcamp$blocks[[1]]) ) stop(err)
+
+  jcamp$blocks[[1]]$ntuples <- jcamp$blocks[[1]]$ntuples[ntuples.number]
+
+  # Flattening file
+  jcamp.flat <- flatten_jcamp(jcamp)
+
+  # Extracting processed data from ntuples
+  descriptors <- jcamp.flat$ntuples$descriptors
+  pages <- jcamp.flat$ntuples$pages
+
+  # Checking variable names
+  variables <- tolower(descriptors$var.name)
+  real.index <- which(str_detect(variables, 'spectrum.*real'))
+  imag.index <- which(str_detect(variables, 'spectrum.*imag'))
+
+  # If both real and imaginary data isn't there, abort
+  err <- 'Import from JCAMP file currently limited to real/imaginary spectra'
+  if ( length(c(real.index, imag.index)) < 2 ) stop(err)
+
+  # Double check that the first entry is frequency
+  err <- 'Import from JCAMP file currently limited to frequency abscissa'
+  if (! str_detect(variables[1], 'freq') ) stop(err)
+
+  # Proceed to extract data
+  real.data <- pages[[real.index - 1]]
+  imag.data <- pages[[imag.index - 1]]
+
+  # Checking that frequency is the same
+  real.frequency <- real.data[, 1]
+  imag.frequency <- imag.data[, 1]
+  err <- 'Mismatch in real and imaginary frequency, likely parsing error'
+  if ( any(abs(real.frequency - imag.frequency) > 1e-6) ) stop(err)
+
+  # Starting with raw values
+  frequency <- real.frequency
+  real.data <- real.data[, 2]
+  imag.data <- imag.data[, 2]
+
+  # Scaling if factors are non zero
+  scale <- descriptors$factor[1]
+  if (scale > 1e-6) frequency <- frequency*scale
+
+  scale <- descriptors$factor[real.index]
+  if (scale > 1e-6) real.data <- real.data*scale
+
+  scale <- descriptors$factor[imag.index]
+  if (scale > 1e-6) imag.data <- imag.data*scale
+
+  # Offsetting if max-min difference is non zero
+  d.max <- descriptors$max[1]
+  d.min <- descriptors$min[1]
+  if ( (d.max - d.min) > 1e-6 ) {
+    frequency <- frequency - max(frequency) + d.max
+  }
+
+  d.max <- descriptors$max[real.index]
+  d.min <- descriptors$min[real.index]
+  if ( (d.max - d.min) > 1e-6 ) {
+    real.data <- real.data - max(real.data) + d.max
+  }
+
+  d.max <- descriptors$max[imag.index]
+  d.min <- descriptors$min[imag.index]
+  if ( (d.max - d.min) > 1e-6 ) {
+    imag.data <- imag.data - max(imag.data) + d.max
+  }
+
+  # Doing one final check on the direct shift to check on offset
+  direct.shift <- frequency/jcamp.flat$sf
+  
+  delta <- jcamp.flat$offset - max(direct.shift)
+  if ( abs(delta) > 1e-6 ) direct.shift <- direct.shift + delta
+
+  # Finally, combine the data
+  intensity <- cmplx1(r = real.data, i = imag.data)
+  processed <- tibble(direct.shift = direct.shift, intensity = intensity)
+
+  # Returning class object
+  new("NMRData1D", processed = processed, parameters = jcamp.flat,
+                   procs = list(), acqus = list()) 
 }
 
 
@@ -234,49 +231,7 @@ nmrdata_1d <- function(path, procs.number = NA,
 
 
 
-#------------------------------------------------------------------------------
-#' @rdname processed 
-#' @export
-setMethod("processed", "NMRData1D", 
-  function(object) callNextMethod())
 
-#' @rdname processed-set
-#' @export
-setReplaceMethod("processed", "NMRData1D", 
-  function(object) callNextMethod())
-
-#------------------------------------------------------------------------------
-#' @rdname parameters
-#' @export
-setMethod("parameters", "NMRData1D", 
-  function(object) callNextMethod())
-
-#' @rdname parameters-set
-#' @export
-setReplaceMethod("parameters", "NMRData1D", 
-  function(object) callNextMethod())
-
-#------------------------------------------------------------------------------
-#' @rdname procs 
-#' @export
-setMethod("procs", "NMRData1D", 
-  function(object) callNextMethod())
-
-#' @rdname procs-set
-#' @export
-setReplaceMethod("procs", "NMRData1D", 
-  function(object) callNextMethod())
-
-#------------------------------------------------------------------------------
-#' @rdname acqus 
-#' @export
-setMethod("acqus", "NMRData1D", 
-  function(object) callNextMethod())
-
-#' @rdname acqus-set
-#' @export
-setReplaceMethod("acqus", "NMRData1D", 
-  function(object) callNextMethod())
 
 
 
@@ -307,41 +262,6 @@ setMethod("as.data.frame", "NMRData1D",
 #==============================================================================>
 #  Non-inherited methods
 #==============================================================================>
-
-
-
-#------------------------------------------------------------------------------
-#' Get parameter from NMRData1D object
-#' 
-#' A safe method of getting a parameter value from either acqus or procs list
-#' with a fallback to generic parameters list.
-#' 
-#' @name get_parameter
-#' @export
-setGeneric("get_parameter", 
-           function(object, ...) standardGeneric("get_parameter"))
-
-#' @param object An NMRData1D object.
-#' @param param.name Name of parameter entry.
-#' @param list.name Name of slot list to acqus (basically either 'acqus' or
-#'                  'procs')
-#' @param error Issue an error if the required parameters can't be found.
-#' 
-#' @rdname get_parameter
-#' @export
-setMethod("get_parameter", "NMRData1D", 
-  function(object, param.name, list.name, error = FALSE) {
-
-    value <- slot(object, list.name)[[param.name]]
-
-    if ( is.null(value) ) value <- object@parameters[[param.name]]
-
-    msg <- sprintf('Parameter "%s" not found in "%s" or parameters list',
-                   param.name, list.name)
-    if ( error && is.null(value) ) stop(msg)
-
-    value
-  })
 
 
 

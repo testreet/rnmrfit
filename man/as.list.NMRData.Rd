@@ -10,9 +10,6 @@ as.list.NMRData(x)
 
 \S4method{as.list}{NMRData1D}(x)
 }
-\arguments{
-\item{x}{NMRData object.}
-}
 \description{
-Outputs all slot values as entries in a list.
+Convert NMRData object to list
 }
