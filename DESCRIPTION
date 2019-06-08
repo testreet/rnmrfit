@@ -5,17 +5,14 @@ Authors@R: person("Stanislav", "Sokolenko", email = "stanislav@sokolenko.net", r
 Description: Implements NMR lineshape fitting using the real and imaginary components of the data in the frequency domain. The core of the algorithm is built around the NLOPT nonlinear optimization library.
 Depends:
     R (>= 3.2.2),
-    dplyr (>= 0.5.0),
     GlobalOptions (>= 0.1),
-    magrittr (>= 1.5),
     nloptr (>= 1.0.4),
     plotly (>= 4.6.0),
     proto (>= 1.0.0),
     RcppFaddeeva (>= 0.1.0),
-    reshape2 (>= 1.4.2),
     splines,
-    stringr (>= 1.0.0),
-    tidyr (>= 0.6.0)
+    tidyverse,
+    vctrs
 Imports: Rcpp, pillar
 LinkingTo: Rcpp
 License: Apache (>= 2.0)

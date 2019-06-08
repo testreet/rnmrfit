@@ -257,3 +257,145 @@ setMethod("as.list", "NMRData", as.list.NMRData)
 as_tibble.NMRData <- function(x) {
   x@processed
 }
+
+
+
+#==============================================================================>
+#  Filter functions
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------------
+#' Internal filter functions used for both direct and indirect shifts
+.filter_shift <- function(x, lower, upper, round, align) {
+
+  # If round is FALSE just do a basic filter and return
+  logic <- (x > lower) & (x < upper)
+  if ( round == FALSE ) return(logic)
+  
+  # Otherwise figure out rounding length and proceed from there
+  n <- sum(logic)
+  n.2 <- log(n)/log(2)
+  if ( round == "up" ) n <- 2^ceiling(n.2)
+  else if ( round == "down" ) n <- 2^floor(n.2)
+  else {
+    err <- '"round" must be one of "up", "down", or FALSE'
+    stop(err)
+  }
+
+  # To ensure the following works, sort from smallest to largest
+  y <- sort(x)
+
+  # Align as required
+  if ( align == "left" ) {
+    logic <- y > lower
+    start <- which(logic)[1]
+    stop <- start + n - 1
+  }
+  else if ( align == "right" ) {
+    logic <- y < upper
+    stop <- which(logic)[sum(logic)]
+    start <- stop - n + 1
+  }
+  else if ( align == "middle" ) {
+    logic <- (y > lower) & (y < upper)
+
+    n.interval <- sum(logic)
+    start <- which(logic)[1]
+    stop <- which(logic)[n.interval]
+
+    n.mod <- n - n.interval
+    start <- start - round(n.mod/2)
+    stop <- stop + (n.mod - round(n.mod/2))
+  } else {
+    err <- '"align" must be one of "left", "right", or "middle"'
+  }
+
+  # Generating output
+  msg <- "Not enough data points to maintain specified power of 2."
+  if ( (start < 1) || (stop > length(y)) ) stop(msg)
+
+  lower <- y[start]
+  upper <- y[stop]
+
+  (x > lower) & (x < upper)
+}
+
+
+
+#------------------------------------------------------------------------------
+#' Filter NMRData based on chemical shift
+#' 
+#' Filter processed data to include only those points that are contained
+#' between a set of lower and upper bounds on chemical shift. Data can be
+#' filtered based on direct or indirect chemical shifts.
+#' 
+#' @param object An NMRData object.
+#' @param lower A lower bound for chemical shift.
+#' @param upper An upper bound for chemical shift.
+#' @param round One of either "up", "down", or FALSE. Convolution is
+#'              considerably faster when performed on vector lengths that are
+#'              powers of two, and as such, it may be beneficial to round the
+#'              total number remaining points, even if it means ignoring one or
+#'              both of the bounds. Use this option to round the total number of
+#'              filtered points up or down.
+#' @param align One of either "lower", "upper", or "middle". Used to align
+#'              points to the specified bounds, when using the "round" option
+#'              prevents the specified bounds to be matched exaxctly.
+#' 
+#' @return An NMRData1D object with filtered processed data.
+#' 
+#' @name filter_direct
+#' @export
+setGeneric("filter_direct", 
+  function(object, ...) {
+    standardGeneric("filter_direct")
+  })
+
+#' @rdname filter_direct
+#' @export
+setMethod("filter_direct", "NMRData", 
+  function(object, lower = NA, upper = NA, round = FALSE, align = "middle") {
+
+    d <- object@processed 
+
+    # Setting default bounds if not present
+    if ( is.na(lower) ) lower <- min(d$direct.shift)
+    if ( is.na(upper) ) upper <- max(d$direct.shift)
+
+    # Directly apply internal filter function
+    d <- filter(d, .filter_shift(direct.shift, lower, upper, round, align))
+    object@processed <- d
+
+    object
+  })
+
+#------------------------------------------------------------------------------
+#' @rdname filter_direct
+#' @export
+setGeneric("filter_indirect", 
+  function(object, ...) {
+    standardGeneric("filter_indirect")
+  })
+
+#' @rdname filter_direct
+#' @export
+setMethod("filter_indirect", "NMRData", 
+  function(object, lower = NA, upper = NA, round = FALSE, align = "middle") {
+
+    d <- object@processed 
+
+    if (! 'indirect.shift' %in% colnames(d) ) return(object)
+
+    # Setting default bounds if not present
+    if ( is.na(lower) ) lower <- min(d$indirect.shift)
+    if ( is.na(upper) ) upper <- max(d$indirect.shift)
+
+    # Apply internal filter function grouped by direct shift
+    d <- group_by(direct.shift) %>%
+           filter(d, .filter_shift(indirect.shift, lower, upper, round, align))
+    object@processed <- ungroup(d)
+
+    object
+  })

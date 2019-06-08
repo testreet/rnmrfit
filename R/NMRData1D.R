@@ -15,19 +15,12 @@ NMRData1D <- setClass("NMRData1D", contains = "NMRData")
 # Validity testing consists of simply checking the processed data.frame columns
 validNMRData1D <- function(object) {
 
+  valid <- TRUE
+  err <- c()
+
   processed <- object@processed
   acqus <- object@acqus
   procs <- object@procs
-
-  # All of the generic validity checks apply here
-  prior <- validNMRData()
-  if ( identical(out, TRUE) ) {
-    valid <- TRUE
-    err <- c()
-  } else {
-    valid <- FALSE
-    err <- prior
-  }
 
   # Checking processed columns
   valid.columns <- c('direct.shift', 'intensity')
@@ -226,58 +219,47 @@ nmrdata_1d_from_jcamp <- function(path, blocks.number = 1, ntuples.number = 1) {
 
 
 #==============================================================================>
-#  Basic conversions and slot access functions (inherited from NMRData)
+#  Formatting and printing
 #==============================================================================>
 
 
 
-
-
-
-
-#==============================================================================>
-#  Defining list and data.frame like behaviour
-#==============================================================================>
-
-
-
-#' @rdname as.list.NMRData
 #' @export
-setMethod("as.list", "NMRData1D",  
-  function(x) {
-    callNextMethod()
-  })
+format.NMRData1D <- function(x, ...) {
+  d <- processed(x)
+  components <- paste(colnames(as_tibble(d$intensity)), collapse = ', ') 
+  shift.range <- range(d$direct.shift)
+  shift.range <- sprintf("%.3f ppm to %.3f ppm", shift.range[1], shift.range[2])
+  sprintf('NMRData1D object (%s), %s\n', components, shift.range)
+}
 
-#------------------------------------------------------------------------
-
-#' @rdname as.data.frame.NMRData
 #' @export
-setMethod("as.data.frame", "NMRData1D",  
-  function(x) {
-    callNextMethod()
-  })
+print.NMRData1D <- function(x, ...) cat(format(x))
+
+#' @export
+setMethod("show", "NMRData1D", 
+  function(object) cat(format(object))
+  )
+
+#' @export
+summary.NMRData1D <- function(object, ...) summary(object@processed)
+
+
+
+#' @export
+is_vector_s3.NMRData1D <- function(x) FALSE
+
+#' @export
+type_sum.NMRData1D <- function(x) "NMRData1D"
+
+#' @export
+obj_sum.NMRData1D <- function(x) format(x)
 
 
 
 #==============================================================================>
 #  Non-inherited methods
 #==============================================================================>
-
-
-
-#------------------------------------------------------------------------------
-#' Display NMRData1D object
-#'
-#' Display a quick summary of the processed data.frame.
-#'
-#' @name show
-#' @export
-setMethod("show", "NMRData1D", 
-  function(object) {
-    cat('An object of NMRData1D class\n')
-    print(summary(object@processed))
-    cat('\n')
-  })
 
 
 
@@ -411,129 +393,6 @@ setMethod("set_convolution", "NMRData1D",
     product <- c(f(n.signal), rep(0, n.fill))
     object@product <- product/sum(abs(product))
     object@convolution <- Re(fftshift(fft(object@product)))
-
-    object
-  })
-
-
-
-#------------------------------------------------------------------------------
-#' Filter 1D chemical shift data by selecting specific regions
-#' 
-#' Filters processed data to include only that which is contained between a set
-#' of lower and upper bounds on chemical shift.
-#' 
-#' @param object An NMRData1D object.
-#' @param lower A lower bound for chemical shift (in the direct dimension).
-#' @param upper An upper bound for chemical shift (in the direct dimension).
-#' @param round.up True to round up the total number of points to a power of 2.
-#'                 This is useful to ensure rapid convolution using the fft when
-#'                 convolution is included in the fit.
-#' 
-#' @return An NMRData1D object with filtered processed data.
-#' 
-#' @name filter_1d
-#' @export
-setGeneric("filter_1d", 
-  function(object, lower = NULL, upper = NULL, round.up = FALSE, ...) {
-    standardGeneric("filter_1d")
-  })
-
-#' @rdname filter_1d 
-#' @export
-setMethod("filter_1d", "NMRData1D", 
-  function(object, lower, upper, round.up) {
-
-    x <- object@processed$direct.shift
-  
-    if ( is.null(lower) ) lower <- min(x)
-    if ( is.null(upper) ) upper <- max(x)
-
-    # Checking bounds
-    if ( lower > upper ) {
-      msg <- 'The lower bound must be smaller than or equal to the upper bound.'
-      stop(msg)
-    }
-
-    if ( length(c(lower, upper)) != 2 ) {
-      msg <- 'Multiple range definition is not currently supported.'
-      stop(msg)
-    }
-
-    # If x happens to be empty, don't do anything else
-    if ( length(x) == 0 ) return(object)
-
-    # Warning if bounds are outside range of chemical shifts 
-    if ( (lower > max(x)) | (upper < min(x)) ) {
-      msg <- 'Some bounds are entirely out of chemical shift range'
-      warning(msg, call. = FALSE)
-    }
-
-    # Generating index
-    index <- (x > lower) & (x < upper)
-
-    # Rounding if necessary
-    if ( round.up ) {
-      n <- sum(index)
-      pwr = log(n)/log(2)
-
-      n.new <- 2^ceiling(pwr)
-      n.extra <- n.new - n
-
-      # Figuring out if there is space to add new points equally on either side
-      rle.index <- rle(index)
-
-
-      # If there are three entries, they are FALSE, TRUE, FALSE
-      if ( length(rle.index$value) == 3 ) {
-        left.count <- rle.index$lengths[1]
-        i.left <- left.count + 1
-
-        right.count <- rle.index$lengths[3]
-        i.right <- sum(rle.index$lengths[1:2])
-        
-        n.left <- min(left.count, floor(n.extra/2))
-        index[(i.left - n.left):(i.left - 1)] <- TRUE
-        n.extra <- n.extra - n.left
-
-        n.right <- min(right.count, n.extra)
-        index[(i.right + 1):(i.right + n.right)] <- TRUE
-        n.extra <- n.extra - n.right
-      # If there are two entries, they are TRUE FALSE, or FALSE TRUE
-      } else if ( length(rle.index$value) == 2 ) {
-        if ( rle.index$value[1] ) {
-          right.count <- rle.index$lengths[2]
-          i.right <- rle.index$lengths[1:2]
-          n.right <- min(right.count, n.extra)
-          index[(i.right + 1):(i.right + n.right)] <- TRUE
-          n.extra <- n.extra - n.right
-        } else {
-          left.count <- rle.index$lengths[1]
-          i.left <- left.count + 1
-          n.left <- min(left.count, n.extra)
-          index[(i.left - n.left):(i.left - 1)] <- TRUE
-          n.extra <- n.extra - n.left
-        }
-      } 
-    
-      # Checking if there are any more indexes unaccounted for
-      if ( n.extra > 0 ) {
-        msg <- 'It was not possible to round desired range to a power of 2.'
-        warning(msg, call. = FALSE)
-      }
-    
-    }
-
-    object@processed <- object@processed[index, ]
-
-    # Adjusting length of convolution vectors
-    if ( length(object@product) > 0 ) {
-      n <- 2*sum(index) - 1
-      product <- object@product
-      object@product <- approx(1:length(product), product, n = n)$y
-      object@product <- object@product/sum(object@product)
-      object@convolution <- Re(fftshift(fft(object@product)))
-    }
 
     object
   })
