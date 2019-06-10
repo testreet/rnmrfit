@@ -10,17 +10,13 @@
 \usage{
 filter_direct(object, ...)
 
-\S4method{filter_direct}{NMRData}(object,
-  lower = min(processed(object)$direct.shift),
-  upper = max(processed(object)$direct.shift), round = FALSE,
-  align = "middle")
+\S4method{filter_direct}{NMRData}(object, lower = NA, upper = NA,
+  round = FALSE, align = "middle")
 
 filter_indirect(object, ...)
 
-\S4method{filter_indirect}{NMRData}(object,
-  lower = min(processed(object)$direct.shift),
-  upper = max(processed(object)$direct.shift), round = FALSE,
-  align = "middle")
+\S4method{filter_indirect}{NMRData}(object, lower = NA, upper = NA,
+  round = FALSE, align = "middle")
 }
 \arguments{
 \item{object}{An NMRData object.}

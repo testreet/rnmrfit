@@ -4,20 +4,26 @@
 \alias{plot.NMRData1D}
 \title{Plot NMRData1D object}
 \usage{
-plot.NMRData1D(x, components = "r", nrows = 2, reverse = TRUE)
+plot.NMRData1D(x, components = "r")
 }
 \arguments{
-\item{x}{NMRData1D object.}
+\item{x}{An NMRFit1D object.}
 
 \item{components}{One of either 'r', 'i', or 'r/i' to include real, imaginary
 or both components. If both components are selected, they
 are displayed in separate subplots.}
 
-\item{nrows}{Max number of rows to display subplots.}
+\item{sum.level}{One of either 'all', 'species', 'resonance', 'peak' to
+specify whether all peaks should be summed together the
+peaks should be summed at a lower level.}
 
-\item{reverse}{TRUE to order x-axis with large values on the left and small
-values on the right like typical NMR plots.}
+\item{sum.baseline}{TRUE to add the baseline to each fit.}
+
+\item{apply.phase}{TRUE to apply the calculated phase to the data.}
+}
+\value{
+A ggplot2 plot.
 }
 \description{
-Generates an interactive plot object using the plotly package.
+Convenience function that generates a plot of the spectral data.
 }

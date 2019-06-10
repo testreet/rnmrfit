@@ -399,3 +399,54 @@ setMethod("filter_indirect", "NMRData",
 
     object
   })
+
+
+
+#==============================================================================>
+#  Data handling functions
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------
+#' Read Bruker acqus parameters
+#' 
+#' Reads the acqus parameters across all acquired dimensions. Data from each
+#' dimension is stored as a separate list with direct (acqus) and indirect
+#' (acqus2) sublists. Since the acqus files are in JCAMP format, the actual
+#' parsing is just a thin wrapper around read_jcamp(), process_jcamp(), and
+#' flatten_jcamp() that reads Bruker scan parameters and puts them in a flat
+#' list.
+#' 
+#' @param path Character string that points to a scan directory.
+#' @param ... Arguments passed into process_jcamp().
+#' 
+#' @return A list made up of nested lists with the processed acqus entries.
+#' 
+#' @export
+read_acqus_dir <- function(path, ...) {
+
+  # Making sure that the path is a directory
+  if (! dir.exists(path)) {
+    msg <- '"path" must point to a scan directory containing acqus files.'
+    stop(msg)
+  }
+
+  # Generating list of acqus file
+  all.files <- list.files(path)
+  acqus.files <- all.files[grepl('acqu\\d*s', all.files)]
+
+  # Checking to make sure that at least some files were found
+  if (length(acqus.files) == 0) {
+    msg <- 'No acqus files found.'
+    stop(msg)
+  }
+
+  # Combining with initial path
+  acqus.paths <- file.path(path, acqus.files)
+
+  # Selecting direct and indirect
+  acqus.paths <- list(direct = acqus.paths$acqus, indirect = acqus.paths$acqu2s)
+  acqus.paths <- lapply(acqus.paths, read_jcamp, ...)
+  lapply(acqus.paths, flatten_jcamp)
+}
