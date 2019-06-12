@@ -77,6 +77,133 @@ setValidity("NMRData", validNMRData)
 
 
 #==============================================================================>
+#  Helper functions for 1D and 2D constructors
+#==============================================================================>
+
+
+
+#------------------------------------------------------------------------
+#' Read Bruker acqus parameters
+#' 
+#' Reads the acqus parameters across all acquired dimensions. Data from each
+#' dimension is stored as a separate list item, i.e., list(direct = [acqus],
+#' indirect = [acqu2s]). Since the acqus files are in JCAMP format, the actual
+#' parsing is just a thin wrapper around read_jcamp(), process_jcamp(), and
+#' flatten_jcamp() that reads Bruker scan parameters and puts them in a flat
+#' list.
+#' 
+#' @param path Character string that points to a scan directory.
+#' @param ... Arguments passed into process_jcamp().
+#' 
+#' @return A list made up of nested lists with the processed acqus entries.
+#' 
+#' @export
+read_acqus <- function(path, ...) {
+
+  # Making sure that the path is a directory
+  if (! dir.exists(path)) {
+    msg <- '"path" must point to a scan directory containing acqus files.'
+    stop(msg)
+  }
+
+  # Generating list of acqus file
+  all.files <- list.files(path)
+
+  # For now, valid files are restricted to 1D acqus and 2D acqu2s
+  valid.files <- c('acqus'='direct', 'acqu2s'='indirect')
+  acqus.files <- all.files[all.files %in% names(valid.files)]
+
+  # Checking to make sure that at least some files were found
+  err <- 'No acqus files found.'
+  if (length(acqus.files) == 0) stop(err)
+
+  # Combining with initial path and tacking on names
+  acqus.paths <- file.path(path, acqus.files)
+  names(acqus.paths) <- valid.files[acqus.files]
+
+  # Defining read and process function
+  f_process <- function(path, ...) {
+    out <- read_jcamp(path, ...)
+    flatten_jcamp(out)
+  }
+
+  # Generating nested list
+  lapply(acqus.paths, f_process, ...)
+}
+
+
+
+#------------------------------------------------------------------------
+#' Read Bruker procs parameters
+#' 
+#' Reads the procs parameters across all acquired dimensions. Data from each
+#' dimension is stored as a separate list item, i.e., list(direct = [procs],
+#' indirect = [proc2s]). Since the procs files are in JCAMP format, the actual
+#' parsing is just a thin wrapper around read_jcamp(), process_jcamp(), and
+#' flatten_jcamp() that reads Bruker scan parameters and puts them in a flat
+#' list.
+#' 
+#' @param path Character string that points to a scan directory.
+#' @param number The processing file number to use. Defaults to smallest number
+#'               in pdata folder.
+#' @param dimension The dimension of the scan parameters (1 or 2). Defaults to
+#'                  loading all
+#' @param ... Arguments passed into process_jcamp().
+#' 
+#' @return A list made up of nested lists with the processed procs entries.
+#' 
+#' @export
+read_procs <- function(path, number = NA, ...) {
+
+  err <- '"path" must point to an experiment directory containing pdata.'
+
+  # First, check if current directory exists
+  if (! dir.exists(path)) stop(err)
+
+  # Directory must contain pdata
+  logic <- ! 'pdata' %in% list.dirs(path, full.names = FALSE, recursive = FALSE)
+  if ( logic ) stop(err)
+
+  # pdata must contain folders
+  pdata.path <- file.path(path, 'pdata')
+  dirs <- list.dirs(pdata.path, full.names = FALSE, recursive = FALSE)
+  
+  err <- 'No directories found within pdata.'
+  if ( length(dirs) == 0 ) stop(err)
+
+  # Choosing default number if necessary
+  if ( is.na(number) ) number <- dirs[1]
+  
+  path <- file.path(path, 'pdata', number)
+
+  # Generating list of procs file
+  all.files <- list.files(path)
+
+  # For now, valid files are restricted to 1D acqus and 2D acqu2s
+  valid.files <- c('procs'='direct', 'proc2s'='indirect')
+  procs.files <- all.files[all.files %in% names(valid.files)]
+
+  # Checking to make sure that at least some files were found
+  err <- 'No procs files found.'
+  if (length(procs.files) == 0) stop(err)
+
+  # Combining with initial path and tacking on names
+  procs.paths <- file.path(path, procs.files)
+  names(procs.paths) <- valid.files[procs.files]
+
+  # Defining read and process function
+  f_process <- function(path, ...) {
+    out <- read_jcamp(path, ...)
+    flatten_jcamp(out)
+  }
+
+  # Generating nested list
+  lapply(procs.paths, f_process, ...)
+}
+
+
+
+#==============================================================================>
 #  Basic setter and getter functions
 #==============================================================================>
 
@@ -105,7 +232,7 @@ setMethod("get_parameter", "NMRData",
   function(object, parameter, location = "acqus", 
            dimension = "direct", error = FALSE) {
 
-    out <- slot(object, location)[[parameter]]
+    out <- slot(object, location)[[dimension]][[parameter]]
     if ( is.null(out) ) out <- object@parameters[[parameter]]
 
     err <- sprintf('Parameter "%s" not found', parameter)

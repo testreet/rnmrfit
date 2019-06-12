@@ -97,10 +97,10 @@ nmrdata_1d <- function(path, procs.number = NA,
 nmrdata_1d_from_pdata <- function(path, procs.number = NA) {
 
   # First, loading procs parameters
-  procs <- read_procs_1d(path, procs.number)
+  procs <- read_procs(path, procs.number)
 
   # Using the procs file to load the processed data
-  processed <- read_processed_1d(path, procs, procs.number)
+  processed <- read_processed_1d(path, procs$direct, procs.number)
 
   # Finally, loading the general acquisition parameters
   acqus <- read_acqus(path)
@@ -109,6 +109,90 @@ nmrdata_1d_from_pdata <- function(path, procs.number = NA) {
   new("NMRData1D", processed = processed, parameters = list(),
                    procs = procs, acqus = acqus)
 
+}
+
+
+#------------------------------------------------------------------------
+#' Read 1D Bruker 1r/1i files
+#' 
+#' Reads processed bruker 1D files based on specified parameters.
+#' 
+#' @param path Character string that points to a Bruker scan directory.
+#' @param procs.list A list of procs parameters that contains 'sw.p', 'si',
+#'                   'sf', 'reverse', and 'offset' entries. This list can be
+#'                   generated using read_procs() or through other means.
+#' @param number The processing file number. Defaults to smallest number in
+#'               pdata directory.
+#'
+#' @return A data.frame made of two columns -- "direct.shift" and "intensity",
+#'         corresponding to direct dimension chemical shift and the complex 
+#'         spectrum intensity data, respectively.
+#'
+#' @export
+read_processed_1d <- function(path, procs.list, number = NA) {
+
+  # Checking for required entries
+  required.procs <- c('sw.p', 'si', 'sf', 'reverse', 'offset')
+  provided.procs <- names(procs.list)
+  missing.procs <- required.procs[! required.procs %in% provided.procs]
+  
+  err <- sprintf("The following required parameters are missing: %s",
+                 paste(missing.procs, collapse = ', '))
+  if ( length(missing.procs) > 0 ) stop(err)
+
+  # Extracting parameters
+  sw.p <- procs.list$sw.p
+  si <- procs.list$si
+  sf <- procs.list$sf
+  rv <- procs.list$reverse 
+  ofs <- procs.list$offset
+
+  # Doing some basic validation
+  err <- '"path" must point to an experiment directory containing pdata.'
+
+  # First, check if current directory exists
+  if (! dir.exists(path)) stop(err)
+
+  # Directory must contain pdata
+  logic <- ! 'pdata' %in% list.dirs(path, full.names = FALSE, recursive = FALSE)
+  if ( logic ) stop(err)
+
+  # pdata must contain folders
+  pdata.path <- file.path(path, 'pdata')
+  dirs <- list.dirs(pdata.path, full.names = FALSE, recursive = FALSE)
+  
+  err <- 'No directories found within pdata.'
+  if ( length(dirs) == 0 ) stop(err)
+
+  # Choosing default number if necessary
+  if ( is.na(number) ) number <- dirs[1]
+  
+  path <- file.path(path, 'pdata', number)
+  
+  # Setting file path 
+  path.real <- file.path(path, '1r')
+  path.imag <- file.path(path, '1i')
+
+  # Reading binary files
+  real.data <- safe_read(path.real, 'bin', size = 4, what = 'integer', n = si)
+  imag.data <- safe_read(path.imag, 'bin', size = 4, what = 'integer', n = si)
+
+	if ( (length(real.data) < si) | (length(imag.data) < si)){
+    msg <- sprintf('Error reading 1r/1i files, file size does not match data')
+		stop(msg)
+	}
+
+  intensity  <- cmplx1(r = real.data, i = imag.data)
+
+  # Formatting the x-axis
+  direct.shift <- seq(ofs, ofs - sw.p/sf, length.out = si)
+  
+  if (rv == 'yes') {
+    direct.shift <- rev(direct.shift)
+  }
+
+  # Combining output
+  tibble(direct.shift = direct.shift, intensity = intensity)
 }
 
 
