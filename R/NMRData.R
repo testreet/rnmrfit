@@ -133,6 +133,35 @@ read_acqus <- function(path, ...) {
 
 
 
+#------------------------------------------------------------------------------
+# Internal function for validating pdata path
+.validate_pdata <- function(path, number) {
+
+  err <- '"path" must point to an experiment directory containing pdata.'
+
+  # First, check if current directory exists
+  if (! dir.exists(path)) stop(err)
+
+  # Directory must contain pdata
+  logic <- ! 'pdata' %in% list.dirs(path, full.names = FALSE, recursive = FALSE)
+  if ( logic ) stop(err)
+
+  # pdata must contain folders
+  pdata.path <- file.path(path, 'pdata')
+  dirs <- list.dirs(pdata.path, full.names = FALSE, recursive = FALSE)
+  
+  err <- 'No directories found within pdata.'
+  if ( length(dirs) == 0 ) stop(err)
+
+  # Choosing default number if necessary
+  if ( is.na(number) ) number <- dirs[1]
+  
+  file.path(path, 'pdata', number)
+
+}
+
+
+
 #------------------------------------------------------------------------
 #' Read Bruker procs parameters
 #' 
@@ -155,26 +184,7 @@ read_acqus <- function(path, ...) {
 #' @export
 read_procs <- function(path, number = NA, ...) {
 
-  err <- '"path" must point to an experiment directory containing pdata.'
-
-  # First, check if current directory exists
-  if (! dir.exists(path)) stop(err)
-
-  # Directory must contain pdata
-  logic <- ! 'pdata' %in% list.dirs(path, full.names = FALSE, recursive = FALSE)
-  if ( logic ) stop(err)
-
-  # pdata must contain folders
-  pdata.path <- file.path(path, 'pdata')
-  dirs <- list.dirs(pdata.path, full.names = FALSE, recursive = FALSE)
-  
-  err <- 'No directories found within pdata.'
-  if ( length(dirs) == 0 ) stop(err)
-
-  # Choosing default number if necessary
-  if ( is.na(number) ) number <- dirs[1]
-  
-  path <- file.path(path, 'pdata', number)
+  path <- .validate_pdata(path, number)
 
   # Generating list of procs file
   all.files <- list.files(path)

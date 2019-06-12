@@ -29,7 +29,7 @@ format.vctrs_cmplx1 <- function(x, ...) {
   i <- field(x, "i")
   
   signs <- c("1"="+", "0"="+", "-1"="")
-  f <- function (x) signs[as.character(sign(i))]
+  f <- function (x) signs[as.character(sign(x))]
   out <- paste0(r, f(i), i, "i")
   out[is.na(r) | is.na(i)] <- NA
   
@@ -107,7 +107,7 @@ format.vctrs_cmplx2 <- function(x, ...) {
   ii <- field(x, "ii")
   
   signs <- c("1"="+", "0"="+", "-1"="")
-  f <- function (x) signs[as.character(sign(i))]
+  f <- function (x) signs[as.character(sign(x))]
   out <- paste0(rr, f(ri), ri, "j", f(ir), ir, "i", f(ii), ii, "ji")
   out[is.na(rr) | is.na(ri) | is.na(ir) | is.na(ii)] <- NA
   

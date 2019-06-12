@@ -17,9 +17,10 @@ generated using read_procs() or through other means.}
 pdata directory.}
 }
 \value{
-A data.frame made of two columns -- "direct.shift" and "intensity",
-        corresponding to direct dimension chemical shift and the complex 
-        spectrum intensity data, respectively.
+A tidyverse data_frame made of two columns -- "direct.shift" and
+        "intensity", corresponding to direct dimension chemical shift and the
+        complex spectrum intensity data stored in a cmplx1 vector,
+        respectively.
 }
 \description{
 Reads processed bruker 1D files based on specified parameters.
