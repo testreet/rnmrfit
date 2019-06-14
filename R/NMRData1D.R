@@ -346,17 +346,12 @@ obj_sum.NMRData1D <- function(x) format(x)
 #' 
 #' Convenience function that generates a plot of the spectral data.
 #' 
-#' @param x An NMRFit1D object.
+#' @param x An NMRData1D object.
 #' @param components One of either 'r', 'i', or 'r/i' to include real, imaginary
 #'                   or both components. If both components are selected, they
 #'                   are displayed in separate subplots.
-#' @param sum.level One of either 'all', 'species', 'resonance', 'peak' to
-#'                  specify whether all peaks should be summed together the
-#'                  peaks should be summed at a lower level.
-#' @param sum.baseline TRUE to add the baseline to each fit.
-#' @param apply.phase TRUE to apply the calculated phase to the data.
 #' 
-#' @return A ggplot2 plot.
+#' @return A plot_ly plot.
 #' 
 #' @export
 plot.NMRData1D <- function(x, components = 'r') {

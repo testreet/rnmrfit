@@ -42,6 +42,9 @@ vec_ptype_abbr.vctrs_cmplx1 <- function(x) "cmplx1"
 #' @export
 vec_ptype_full.vctrs_cmplx1 <- function(x) "complex1d"
 
+#' @export
+dim.vctrs_cmplx1 <- function(x) NULL
+
 #------------------------------------------------------------------------------
 # New subsetting functions
 
@@ -119,6 +122,9 @@ vec_ptype_abbr.vctrs_cmplx2 <- function(x) "cmplx2"
 
 #' @export
 vec_ptype_full.vctrs_cmplx2 <- function(x) "complex2d"
+
+#' @export
+vec_type2.vctrs_cmplx2.vctrs_unspecified <- function(x, y, ...) x
 
 #------------------------------------------------------------------------------
 # New subsetting functions

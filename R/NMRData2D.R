@@ -265,54 +265,77 @@ obj_sum.NMRData2D <- function(x) format(x)
 #==============================================================================>
 
 #------------------------------------------------------------------------------
-#' Plot NMRData1D object
+#' Plot NMRData2D object
 #' 
 #' Convenience function that generates a plot of the spectral data.
 #' 
-#' @param x An NMRFit1D object.
-#' @param components One of either 'r', 'i', or 'r/i' to include real, imaginary
-#'                   or both components. If both components are selected, they
-#'                   are displayed in separate subplots.
-#' @param sum.level One of either 'all', 'species', 'resonance', 'peak' to
-#'                  specify whether all peaks should be summed together the
-#'                  peaks should be summed at a lower level.
-#' @param sum.baseline TRUE to add the baseline to each fit.
-#' @param apply.phase TRUE to apply the calculated phase to the data.
+#' @param x An NMRData2D object.
+#' @param components Some combination of 'rr', 'ii', 'ir', and 'ri' in a single
+#'                   string such as 'rr/ii' to include various real and
+#'                   imaginary components. If more than one component is
+#'                   selected, they are displayed in separate subplots.
 #' 
-#' @return A ggplot2 plot.
+#' @return A plot_ly plot.
 #' 
 #' @export
-plot.NMRData2D <- function(x, components = 'r') {
-
-  d <- x@processed
-  direct.shift <- d$direct.shift
-  y.data <- d$intensity
+plot.NMRData2D <- function(x, components = 'rr') {
 
   legend.opts <- list(orientation = 'h', xanchor = "center", x = 0.5)
 
+  #---------------------------------------
+  # For most evenly sampled data, just generate a data matrix
+
+  d <- x@processed
+
+  m <- d %>%
+    pivot_wider(id_cols = 'direct.shift', 
+                names_from = 'indirect.shift', values_from = 'intensity')
+    select(-direct.shift)
+
+  print(head(m))
+
+  x <- unique(d$direct.shift)
+  y <- unique(d$indirect.shift)
+
+  err <- "NMR2D plots currently only support evenly sampled data."
+  if ( any(is.na(m)) ) stop(err)
+
   # Defining generic plot function
-  f_init <- function(y, color, name) {
-    p <- plot_ly(x = direct.shift, y = y, color = I(color), 
-                 name = I(name), type = 'scatter', mode = 'lines',
-                 legendgroup = 1) %>%
-         layout(legend = legend.opts,
-                xaxis = list(autorange = "reversed"))
+  f_init <- function(m, name) {
+
+    p <- plot_ly(x = x, y = y,  z = as.matrix(m), name = I(name), legendgroup = 1) %>% 
+      add_surface() %>%
+      layout(
+        legend = legend.opts,
+        xaxis = list(autorange = "reversed"),
+        yaxis = list(autorange = "reversed"),
+        scene = list(
+          camera=list(
+            eye = list(x=0.5, y=0.5, z=0.5)
+          )
+        )
+      )
+
   }
 
   # Initializing the plot list
   plots <- list()
 
   # Checking which components to plot
-  re <- grepl('r', components)
-  im <- grepl('i', components)
+  rr <- grepl('rr', components)
+  ri <- grepl('ri', components)
+  ir <- grepl('ir', components)
+  ii <- grepl('ii', components)
 
   # Plotting 
-  if ( re ) plots$r <- f_init(Re(y.data), 'black', 'Real')
-  if ( im ) plots$i <- f_init(Im(y.data), 'grey', 'Imaginary')
+  if ( rr ) plots$rr <- f_init(sapply(m, `$`, 'rr'), 'Real')
+  if ( ri ) plots$ri <- f_init(sapply(m, `$`, 'ri'), 'Real')
+  if ( ir ) plots$ir <- f_init(sapply(m, `$`, 'ir'), 'Real')
+  if ( ii ) plots$ii <- f_init(sapply(m, `$`, 'ii'), 'Imaginary')
 
   if ( length(plots) == 0 ) NULL
   else subplot(plots, shareX = TRUE, shareY = TRUE, 
                nrows = min(length(plots), 2))
 }
 
-setMethod("plot", "NMRData1D", plot.NMRData1D)
+setMethod("plot", "NMRData2D", plot.NMRData2D)
