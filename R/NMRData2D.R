@@ -198,7 +198,7 @@ read_processed_2d <- function(path, procs.list, number = NA) {
   if (rv[1] == 'yes') direct.shift <- rev(direct.shift)
 
   # Formatting indirect.shift 
-  indirect.shift <- seq(ofs[2], ofs[2] - sw.p[2]/sf[2], length.out = si[2])
+  indirect.shift <- seq(ofs[2] - sw.p[2]/sf[2], ofs[2], length.out = si[2])
   if (rv[2] == 'yes') indirect.shift <- rev(indirect.shift)
 
   # Combining output
@@ -282,6 +282,35 @@ plot.NMRData2D <- function(x, components = 'rr') {
 
   legend.opts <- list(orientation = 'h', xanchor = "center", x = 0.5)
 
+  f <- list(
+    family = "Courier New, monospace",
+    size = 16,
+    color = "#7f7f7f"
+  )
+
+  xaxis <- list(
+    title = "Indirect chemical shift (ppm)",
+    titlefont = f
+  )
+  yaxis <- list(
+    title = "Direct chemical shift (ppm)",
+    titlefont = f,
+    autorange = "reversed"
+  )
+  zaxis <- list(
+    title = "Intensity",
+    titlefont = f
+  )
+
+  scene <- list(
+    xaxis = xaxis,
+    yaxis = yaxis,
+    zaxis = zaxis,
+    camera=list(
+      eye = list(x=0.5, y=0.5, z=0.5)
+    )
+  )
+
   #---------------------------------------
   # For most evenly sampled data, just generate a data matrix
 
@@ -289,33 +318,23 @@ plot.NMRData2D <- function(x, components = 'rr') {
 
   m <- d %>%
     pivot_wider(id_cols = 'direct.shift', 
-                names_from = 'indirect.shift', values_from = 'intensity')
+                names_from = 'indirect.shift', values_from = 'intensity') %>%
     select(-direct.shift)
 
-  print(head(m))
-
-  x <- unique(d$direct.shift)
-  y <- unique(d$indirect.shift)
+  direct.shift <- unique(d$direct.shift)
+  indirect.shift <- unique(d$indirect.shift)
 
   err <- "NMR2D plots currently only support evenly sampled data."
   if ( any(is.na(m)) ) stop(err)
 
   # Defining generic plot function
-  f_init <- function(m, name) {
+  f_init <- function(m, name, scene) {
 
-    p <- plot_ly(x = x, y = y,  z = as.matrix(m), name = I(name), legendgroup = 1) %>% 
-      add_surface() %>%
-      layout(
-        legend = legend.opts,
-        xaxis = list(autorange = "reversed"),
-        yaxis = list(autorange = "reversed"),
-        scene = list(
-          camera=list(
-            eye = list(x=0.5, y=0.5, z=0.5)
-          )
-        )
-      )
+    p <- plot_ly(x = indirect.shift, y = direct.shift,  z = as.matrix(m), 
+                 name = I(name), legendgroup = 1, scene = scene) %>% 
+      add_surface()
 
+    p
   }
 
   # Initializing the plot list
@@ -328,14 +347,25 @@ plot.NMRData2D <- function(x, components = 'rr') {
   ii <- grepl('ii', components)
 
   # Plotting 
-  if ( rr ) plots$rr <- f_init(sapply(m, `$`, 'rr'), 'Real')
-  if ( ri ) plots$ri <- f_init(sapply(m, `$`, 'ri'), 'Real')
-  if ( ir ) plots$ir <- f_init(sapply(m, `$`, 'ir'), 'Real')
-  if ( ii ) plots$ii <- f_init(sapply(m, `$`, 'ii'), 'Imaginary')
+  if ( rr ) plots$rr <- f_init(sapply(m, field, 'rr'), 
+                               'Real', 'scene1')
+  if ( ri ) plots$ri <- f_init(sapply(m, field, 'ri'), 
+                               'Real/Imaginary', 'scene2')
+  if ( ir ) plots$ir <- f_init(sapply(m, field, 'ir'), 
+                               'Imaginary/Real', 'scene3')
+  if ( ii ) plots$ii <- f_init(sapply(m, field, 'ii'), 
+                               'Imaginary', 'scene4')
 
-  if ( length(plots) == 0 ) NULL
-  else subplot(plots, shareX = TRUE, shareY = TRUE, 
-               nrows = min(length(plots), 2))
+  if ( length(plots) == 0 )  return(NULL)
+  else p <- subplot(plots, shareX = TRUE, shareY = TRUE, 
+                    nrows = min(length(plots), 2))
+
+  # Tacking on scene settings
+  args <- list(p)
+  scenes <- c('scene', 'scene2', 'scene3', 'scene4')
+  for ( i in 1:length(plots) ) args[[scenes[i]]] <- scene
+
+  do.call(layout, args) 
 }
 
 setMethod("plot", "NMRData2D", plot.NMRData2D)

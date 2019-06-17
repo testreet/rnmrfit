@@ -356,11 +356,28 @@ obj_sum.NMRData1D <- function(x) format(x)
 #' @export
 plot.NMRData1D <- function(x, components = 'r') {
 
+  legend.opts <- list(orientation = 'h', xanchor = "center", x = 0.5)
+
+  f <- list(
+    family = "Courier New, monospace",
+    size = 16,
+    color = "#7f7f7f"
+  )
+
+  xaxis <- list(
+    title = "Direct chemical shift (ppm)",
+    titlefont = f,
+    autorange = "reversed"
+  )
+  yaxis <- list(
+    title = "Intensity",
+    titlefont = f
+  )
+
+  #---------------------------------------
   d <- x@processed
   direct.shift <- d$direct.shift
   y.data <- d$intensity
-
-  legend.opts <- list(orientation = 'h', xanchor = "center", x = 0.5)
 
   # Defining generic plot function
   f_init <- function(y, color, name) {
@@ -368,7 +385,7 @@ plot.NMRData1D <- function(x, components = 'r') {
                  name = I(name), type = 'scatter', mode = 'lines',
                  legendgroup = 1) %>%
          layout(legend = legend.opts,
-                xaxis = list(autorange = "reversed"))
+                xaxis = xaxis, yaxis = yaxis)
   }
 
   # Initializing the plot list

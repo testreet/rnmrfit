@@ -8,7 +8,7 @@
 
 
 #' @export
-new_cmplx1 <- function(r = double, i = double()) {
+new_cmplx1 <- function(r = double(), i = double()) {
   vec_assert(r, ptype = double())
   vec_assert(i, ptype = double())
   
@@ -56,6 +56,42 @@ dim.vctrs_cmplx1 <- function(x) NULL
 }
 
 #------------------------------------------------------------------------------
+# Casting
+
+#---------------------------------------
+# Type definitions
+vec_type2.vctrs_cmplx1 <- function(x, y, ...) {
+  UseMethod("vec_type2.vctrs_cmplx1", y)
+}
+
+vec_type2.vctrs_cmplx1.default <- function(x, y, ..., x_arg = "", y_arg = "") {
+  stop_incompatible_type(x, y, x_arg = x_arg, y_arg = y_arg)
+}
+
+vec_type2.vctrs_cmplx1.vctrs_unspecified <- function(x, y, ...) x
+vec_type2.vctrs_cmplx1.vctrs_cmplx1 <- function(x, y, ...) new_cmplx1()
+
+vec_type2.vctrs_cmplx1.complex <- function(x, y, ...) new_cmplx1()
+vec_type2.complex.vctrs_cmplx1 <- function(x, y, ...) new_cmplx1()
+
+vec_type2.vctrs_cmplx1.numeric <- function(x, y, ...) new_cmplx1()
+vec_type2.numeric.vctrs_cmplx1 <- function(x, y, ...) new_cmplx1()
+
+#---------------------------------------
+# Cast definitions
+
+vec_cast.vctrs_cmplx1 <- function(x, to) UseMethod("vec_cast.vctrs_cmplx1")
+vec_cast.vctrs_cmplx1.default <- function(x, to) vec_default_cast(x, to)
+
+vec_cast.vctrs_cmplx1.vctrs_cmplx1 <- function(x, to) x
+vec_cast.numeric.vctrs_cmplx1 <- function(x, to) Re(x)
+vec_cast.complex.vctrs_cmplx1 <- function(x, to) {
+  complex(real = Re(x), imag = Im(x))
+}
+vec_cast.vctrs_cmplx1.numeric <- function(x, to) cmplx1(r = x)
+vec_cast.vctrs_cmplx1.complex <- function(x, to) cmplx1(r = Re(x), i = Im(x))
+
+#------------------------------------------------------------------------------
 # Traditional Re()/Im()
 
 #' @export
@@ -85,7 +121,8 @@ summary.vctrs_cmplx1 <- function(object, ...,
 
 
 #' @export
-new_cmplx2 <- function(rr = double, ri = double(), ir = double(), ii = double) {
+new_cmplx2 <- function(rr = double(), ri = double(), 
+                       ir = double(), ii = double()) {
   vec_assert(rr, ptype = double())
   vec_assert(ri, ptype = double())
   vec_assert(ir, ptype = double())
@@ -135,6 +172,42 @@ vec_type2.vctrs_cmplx2.vctrs_unspecified <- function(x, y, ...) x
   field(x, name) <- value
   x
 }
+
+#------------------------------------------------------------------------------
+# Casting
+
+#---------------------------------------
+# Type definitions
+vec_type2.vctrs_cmplx2 <- function(x, y, ...) {
+  UseMethod("vec_type2.vctrs_cmplx2", y)
+}
+
+vec_type2.vctrs_cmplx2.default <- function(x, y, ..., x_arg = "", y_arg = "") {
+  stop_incompatible_type(x, y, x_arg = x_arg, y_arg = y_arg)
+}
+
+vec_type2.vctrs_cmplx2.vctrs_unspecified <- function(x, y, ...) x
+vec_type2.vctrs_cmplx2.vctrs_cmplx2 <- function(x, y, ...) new_cmplx2()
+
+vec_type2.vctrs_cmplx2.complex <- function(x, y, ...) new_cmplx2()
+vec_type2.complex.vctrs_cmplx2 <- function(x, y, ...) new_cmplx2()
+
+vec_type2.vctrs_cmplx2.numeric <- function(x, y, ...) new_cmplx2()
+vec_type2.numeric.vctrs_cmplx2 <- function(x, y, ...) new_cmplx2()
+
+#---------------------------------------
+# Cast definitions
+
+vec_cast.vctrs_cmplx2 <- function(x, to) UseMethod("vec_cast.vctrs_cmplx2")
+vec_cast.vctrs_cmplx2.default <- function(x, to) vec_default_cast(x, to)
+
+vec_cast.vctrs_cmplx2.vctrs_cmplx2 <- function(x, to) x
+vec_cast.numeric.vctrs_cmplx2 <- function(x, to) Re(x)
+vec_cast.complex.vctrs_cmplx2 <- function(x, to) {
+  complex(real = Re(x), imag = Im(x))
+}
+vec_cast.vctrs_cmplx2.numeric <- function(x, to) cmplx2(rr = x)
+vec_cast.vctrs_cmplx2.complex <- function(x, to) cmplx2(rr = Re(x), ii = Im(x))
 
 #------------------------------------------------------------------------------
 # Traditional Re()/Im()

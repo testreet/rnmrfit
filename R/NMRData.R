@@ -530,7 +530,7 @@ setMethod("filter_indirect", "NMRData",
     if ( is.na(upper) ) upper <- max(d$indirect.shift)
 
     # Apply internal filter function grouped by direct shift
-    d <- group_by(direct.shift) %>%
+    d <- group_by(d, direct.shift) %>%
            filter(d, .filter_shift(indirect.shift, lower, upper, round, align))
     object@processed <- ungroup(d)
 

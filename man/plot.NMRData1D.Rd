@@ -7,22 +7,14 @@
 plot.NMRData1D(x, components = "r")
 }
 \arguments{
-\item{x}{An NMRFit1D object.}
+\item{x}{An NMRData1D object.}
 
 \item{components}{One of either 'r', 'i', or 'r/i' to include real, imaginary
 or both components. If both components are selected, they
 are displayed in separate subplots.}
-
-\item{sum.level}{One of either 'all', 'species', 'resonance', 'peak' to
-specify whether all peaks should be summed together the
-peaks should be summed at a lower level.}
-
-\item{sum.baseline}{TRUE to add the baseline to each fit.}
-
-\item{apply.phase}{TRUE to apply the calculated phase to the data.}
 }
 \value{
-A ggplot2 plot.
+A plot_ly plot.
 }
 \description{
 Convenience function that generates a plot of the spectral data.

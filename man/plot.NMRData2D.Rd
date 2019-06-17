@@ -2,27 +2,20 @@
 % Please edit documentation in R/NMRData2D.R
 \name{plot.NMRData2D}
 \alias{plot.NMRData2D}
-\title{Plot NMRData1D object}
+\title{Plot NMRData2D object}
 \usage{
-plot.NMRData2D(x, components = "r")
+plot.NMRData2D(x, components = "rr")
 }
 \arguments{
-\item{x}{An NMRFit1D object.}
+\item{x}{An NMRData2D object.}
 
-\item{components}{One of either 'r', 'i', or 'r/i' to include real, imaginary
-or both components. If both components are selected, they
-are displayed in separate subplots.}
-
-\item{sum.level}{One of either 'all', 'species', 'resonance', 'peak' to
-specify whether all peaks should be summed together the
-peaks should be summed at a lower level.}
-
-\item{sum.baseline}{TRUE to add the baseline to each fit.}
-
-\item{apply.phase}{TRUE to apply the calculated phase to the data.}
+\item{components}{Some combination of 'rr', 'ii', 'ir', and 'ri' in a single
+string such as 'rr/ii' to include various real and
+imaginary components. If more than one component is
+selected, they are displayed in separate subplots.}
 }
 \value{
-A ggplot2 plot.
+A plot_ly plot.
 }
 \description{
 Convenience function that generates a plot of the spectral data.
