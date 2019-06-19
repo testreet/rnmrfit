@@ -51,14 +51,16 @@ NMRFit1D <- setClass("NMRFit1D",
     knots = 'numeric',
     baseline = 'complex',
     phase = 'numeric',
-    bounds = 'list'
+    bounds = 'list',
+    time = 'numeric'
   ),
   prototype = prototype(
     species = list(),
     knots = numeric(0), 
     baseline = complex(re = rep(0, 3), im = rep(0, 3)),
     phase = c(0),
-    bounds = list(lower = NULL, upper = NULL)
+    bounds = list(lower = NULL, upper = NULL),
+    time = c(0)
   )
 )
 
@@ -113,7 +115,7 @@ validNMRFit1D <- function(object) {
 
   #---------------------------------------
   # Checking baseline length 
-  if ( length(baseline) <= length(knots)  ) {
+  if ( (length(baseline) > 0) && (length(baseline) <= length(knots)) ) {
 
       valid <- FALSE
       new.err <- paste('"baseline" vector length must be greater than the',
@@ -443,28 +445,36 @@ setMethod("fit", "NMRFit1D",
     y <- d$intensity
     y.range <- range(Re(y))
 
+    # Normalizing data
+    x <- (x - x.range[1])/x.span
+    y <- y/y.range[2]
+
     # Exclude peaks in advance by tying into the update_peaks functions
+    # (to consider full resonance/fit exclusion)
     peaks <- peaks(object)
     logic <- (peaks$position > x.range[1]) & (peaks$position < x.range[2])
     peaks <- peaks[logic, ]
 
-    object <- update_peaks(object, peaks, exclusion.level = exclusion.level,
-                           exclusion.notification = "none")
+    object2 <- update_peaks(object, peaks, exclusion.level = exclusion.level,
+                            exclusion.notification = "none")
+
+    peaks <- peaks(object2)
+    n.peaks <- nrow(peaks)
 
     # Scaling and unpacking all parameters
     data.columns <- c('position', 'width', 'height', 'fraction.gauss')
     lengths <- list(peaks = nrow(peaks)*length(data.columns))
 
-    param <- list(peaks = peaks[, data.columns], 
+    peaks <- list(par = peaks[, data.columns], 
                   lb = bounds(object)$lower$peaks[, data.columns], 
                   ub = bounds(object)$upper$peaks[, data.columns])
 
-    for (name in names(param)) {
-      param[[name]]$position <- (param[[name]]$position - x.range[1])/x.span
-      param[[name]]$width <- param[[name]]$width/sf/x.span
-      param[[name]]$height <- param[[name]]$height/y.range[2]
+    for (name in names(peaks)) {
+      peaks[[name]]$position <- (peaks[[name]]$position - x.range[1])/x.span
+      peaks[[name]]$width <- peaks[[name]]$width/sf/x.span
+      peaks[[name]]$height <- peaks[[name]]$height/y.range[2]
 
-      param[[name]] <- as.vector(t(as.matrix(param[[name]])))
+      peaks[[name]] <- as.vector(t(as.matrix(peaks[[name]])))
     }
 
     # Scaling and unpacking baseline/phase terms
@@ -474,18 +484,19 @@ setMethod("fit", "NMRFit1D",
     lengths$phase <- n.phase
 
     # Scaling performed below for conv
-    baseline <- list(peaks = baseline(object), 
+    baseline <- list(par = baseline(object), 
                      lb = rep(bounds(object)$lower$baseline, n.baseline),
                      ub = rep(bounds(object)$upper$baseline, n.baseline))
 
-    # Technically speaking, the bound on phase is a constraint, not a bound
-    phase <- list(peaks = phase(object), 
-                     lb = rep(-Inf, n.phase),
-                     ub = rep(Inf, n.phase))
+    # Technically speaking, the "bound" on phase is a constraint, not a bound
+    phase <- list(par = phase(object), 
+                  lb = rep(-Inf, n.phase),
+                  ub = rep(Inf, n.phase))
 
-    for (name in names(param)) {
-      param[[name]] <- c(param[[name]], Re(baseline[[name]])/y.range[2], 
-                         Im(baseline[[name]])/y.range[2], phase[[name]])
+    par <- list(par = NA, lb = NA, ub = NA)
+    for (name in names(par)) {
+      par[[name]] <- c(peaks[[name]], Re(baseline[[name]])/y.range[2], 
+                        Im(baseline[[name]])/y.range[2], phase[[name]])
     }
 
     #---------------------------------------
@@ -628,11 +639,39 @@ setMethod("fit", "NMRFit1D",
     }
 
     # For now, just output list of parameters that will be passed down
-    list(peaks = param$peaks, lb = param$lb, ub = param$ub,
-         eq = eq.constraints, ineq = ineq.constraints)
+    #list(peaks = param$peaks, lb = param$lb, ub = param$ub,
+    #     eq = eq.constraints, ineq = ineq.constraints)
 
-    # The final list will also include:
-    # n.peaks, n.baseline, n.phase, x, y, basis (matrix), components
+    #---------------------------------------
+    # Performing the fit
+    start.time <- proc.time()
+    fit_lineshape_1d(x, y, par$par)
+    object@time <- as.numeric(proc.time() - start.time)[3]
+
+    #---------------------------------------
+    # Unpacking and rescaling parameters
+    
+    # Starting with peaks
+    peaks <- peaks(object)
+    new.peaks <- matrix(par$par[1:(n.peaks*4)], ncol = 4, byrow = TRUE)
+    peaks[, data.columns] <- new.peaks
+
+    peaks$position <- peaks$position*x.span + x.range[1]
+    peaks$width <- peaks$width*sf*x.span
+    peaks$height <- peaks$height*y.range[2]
+
+    object <- update_peaks(object, peaks, exclusion.level = exclusion.level,
+                           exclusion.notification = exclusion.notification)
+
+    # Then baseline
+    index <- (n.peaks*4 + 1):(n.peaks*4 + n.baseline)
+    if ( n.baseline > 0 ) object@baseline <- par$par[index]*y.range[2]
+
+    # And phase
+    index <- (n.peaks*4 + n.baseline + 1):(n.peaks*4 + n.baseline + n.phase)
+    if ( n.phase > 0 ) object@phase <- par$par[index]
+
+    object
   })
 
 
@@ -1329,13 +1368,22 @@ setMethod("f_baseline", "NMRFit1D",
     baseline <- object@baseline
     order <- length(baseline) - length(knots)
 
-    # Generating function
-    function(x) {
-      basis <- splines::bs(x, degree = order, knots = knots)
-      y <- basis %*% matrix(baseline, ncol = 1)
-      f_out(y)
+    # If there are no baseline parameters, return a dummy functions
+    if ( length(baseline) == 0 ) {
+      function(x) {
+        zeros <- rep(0, length(x))
+        f_out(complex(zeros, zeros))
+      }
     }
-    })
+    # Otherwise, generating actual baseline function
+    else {
+      function(x) {
+        basis <- splines::bs(x, degree = order, knots = knots)
+        y <- basis %*% matrix(baseline, ncol = 1)
+        f_out(y)
+      }
+    }
+  })
 
 
 #------------------------------------------------------------------------
