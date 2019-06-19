@@ -6,15 +6,20 @@
 using namespace Rcpp;
 
 // fit_lineshape_1d
-double fit_lineshape_1d(const Rcpp::NumericVector x, const Rcpp::ComplexVector y, Rcpp::NumericVector par);
-RcppExport SEXP _rnmrfit_fit_lineshape_1d(SEXP xSEXP, SEXP ySEXP, SEXP parSEXP) {
+double fit_lineshape_1d(const Rcpp::NumericVector x, const Rcpp::ComplexVector y, Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub, int n_peaks, int n_baseline, int n_phase);
+RcppExport SEXP _rnmrfit_fit_lineshape_1d(SEXP xSEXP, SEXP ySEXP, SEXP parSEXP, SEXP lbSEXP, SEXP ubSEXP, SEXP n_peaksSEXP, SEXP n_baselineSEXP, SEXP n_phaseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Rcpp::NumericVector >::type x(xSEXP);
     Rcpp::traits::input_parameter< const Rcpp::ComplexVector >::type y(ySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type par(parSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_lineshape_1d(x, y, par));
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type lb(lbSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type ub(ubSEXP);
+    Rcpp::traits::input_parameter< int >::type n_peaks(n_peaksSEXP);
+    Rcpp::traits::input_parameter< int >::type n_baseline(n_baselineSEXP);
+    Rcpp::traits::input_parameter< int >::type n_phase(n_phaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_lineshape_1d(x, y, par, lb, ub, n_peaks, n_baseline, n_phase));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -42,7 +47,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_rnmrfit_fit_lineshape_1d", (DL_FUNC) &_rnmrfit_fit_lineshape_1d, 3},
+    {"_rnmrfit_fit_lineshape_1d", (DL_FUNC) &_rnmrfit_fit_lineshape_1d, 8},
     {"_rnmrfit_lineshape_1d", (DL_FUNC) &_rnmrfit_lineshape_1d, 2},
     {"_rnmrfit_test_list", (DL_FUNC) &_rnmrfit_test_list, 1},
     {NULL, NULL, 0}

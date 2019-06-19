@@ -21,7 +21,7 @@ typedef struct {
   std::vector< std::complex<double> > temp_fit;
   std::vector< std::complex<double> > temp_diff;
   std::vector< std::vector < std::complex<double> > > temp_grad;
-  int n_points, n_par, n_peaks, count;
+  int n_points, n_par, n_peaks, n_baseline, n_phase, count;
 } stored_data;
 
 
@@ -65,7 +65,7 @@ void lorentz_1d(int j, const double *par, double *grad, void *lineshape_data) {
          ( complex<double> (z2p1, 0) );
        
     // Tacking on the h
-    (*temp_fit).at(i) = ( complex<double> (h, 0) ) * fi;
+    (*temp_fit).at(i) += ( complex<double> (h, 0) ) * fi;
 
     // Only compute derivatives if required
     if ( grad ) {
@@ -78,17 +78,17 @@ void lorentz_1d(int j, const double *par, double *grad, void *lineshape_data) {
 
       // Position gradient
       dfdp = dfdz*dzdp;
-      (*temp_grad).at(i).at(0) = dfdp;
+      (*temp_grad).at(i).at(j*4) = dfdp;
 
       // Lorentz width gradient
       dfdwl = dfdz*dzdwl;
-      (*temp_grad).at(i).at(1) = dfdwl;
+      (*temp_grad).at(i).at(j*4+1) = dfdwl;
 
       // Height gradient
-      (*temp_grad).at(i).at(2) = fi;
+      (*temp_grad).at(i).at(j*4+2) = fi;
 
       // Fraction gradient
-      (*temp_grad).at(i).at(3) = 0;
+      (*temp_grad).at(i).at(j*4+3) = 0;
     }
   }
 
@@ -120,12 +120,18 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
 
   //--------------------
   // Calculate lineshape temp_fit, and gradients grad
-	
+
+  // Reseting temporary fit to zero
+  for(int i = 0; i < n_points; i++ ) {
+    (*temp_fit).at(i) = complex<double> (0, 0);
+  }
+  
   // Outer loop iterates over every peak
   for (int j = 0; j < n_peaks; j++) {
-
+    
     // If the fraction gauss value is 0, proceed as Lorentz (w becomes wl)
-    if ( par[j*4+3] == 0 ) {
+    // if ( par[j*4+3] == 0 ) {
+    if ( true ) {
 		  lorentz_1d(j, par, grad, lineshape_data);	
     }
   }
@@ -135,8 +141,8 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
   
   for (int i = 0; i < n_points; i++) {
 	  (*temp_diff).at(i) = y.at(i) - (*temp_fit).at(i); 
-	  eval += (*temp_diff).at(i).real() * (*temp_diff).at(i).real() +
-            (*temp_diff).at(i).imag() * (*temp_diff).at(i).imag();
+	  eval += (*temp_diff).at(i).real() * (*temp_diff).at(i).real();
+    eval += (*temp_diff).at(i).imag() * (*temp_diff).at(i).imag();
   }
 
   // Gradients
@@ -146,8 +152,9 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
     
       for (int i = 0; i < n_points; i++) {
         grad[j] += -2*( (*temp_diff).at(i).real() * 
-                        (*temp_grad).at(i).at(j).real() + 
-                        (*temp_diff).at(i).imag() * 
+                        (*temp_grad).at(i).at(j).real() );
+
+        grad[j] += -2*( (*temp_diff).at(i).imag() * 
                         (*temp_grad).at(i).at(j).imag() );
       }
     }
@@ -164,32 +171,30 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
 //' @export
 // [[Rcpp::export]]
 double fit_lineshape_1d(
-       const Rcpp::NumericVector x, const Rcpp::ComplexVector y,
-       Rcpp::NumericVector par) {
+  const Rcpp::NumericVector x, const Rcpp::ComplexVector y,
+  Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub,
+  int n_peaks, int n_baseline, int n_phase) {
 
   using namespace std;
+
+  Rcpp::Function R_is_fin("is.finite");
 
   //--------------------
   // Converting and storing data
   
-  // Defining some common lengths to avoid confustion
   int n_points = y.size();
   int n_par = par.size();
-  int n_peaks = par.size()/4;
-
-  // note that while n_peaks looks a little weird now, it should preempt future
-  // issues with baseline/phase terms
 
   // x and y data  
   vector< complex<double> > y_store(n_points, complex<double> (0,0));
   vector< double > x_store(n_points, 0);
 
-  Rcpp::Function Re("Re");
-  Rcpp::Function Im("Im");
+  Rcpp::Function R_re("Re");
+  Rcpp::Function R_im("Im");
 
   for (int i = 0; i < n_points; i++) {
-    y_store.at(i) = complex<double> (Rcpp::as<double>(Re(y.at(i))),
-                                     Rcpp::as<double>(Im(y.at(i))));
+    y_store.at(i) = complex<double> (Rcpp::as<double>(R_re(y.at(i))),
+                                     Rcpp::as<double>(R_im(y.at(i))));
     x_store.at(i) = x.at(i);
   }
 
@@ -198,29 +203,27 @@ double fit_lineshape_1d(
   vector< complex<double> > temp_diff(n_points, complex<double> (0,0));
   vector< vector < complex<double> > > 
     temp_grad(n_points, vector< std::complex<double> > 
-        ( n_peaks*4, std::complex<double> (0,0) ) 
+        ( n_par, std::complex<double> (0,0) ) 
     );
 
   // Packing lineshape structure
-  stored_data lineshape_data[9] = {
+  stored_data lineshape_data[11] = {
     x_store, y_store, temp_fit, temp_diff, temp_grad, 
-    n_points, n_par, n_peaks, 0};
+    n_points, n_par, n_peaks, n_baseline, n_phase, 0};
 
   //--------------------
   // Setting up the optimizer
 
   nlopt_opt opt;
 
-  opt = nlopt_create(NLOPT_LD_SLSQP, 4);    
-  //opt = nlopt_create(NLOPT_LN_COBYLA, 4); 
+  opt = nlopt_create(NLOPT_LD_SLSQP, n_par);    
+  //opt = nlopt_create(NLOPT_LN_COBYLA, n_par); 
   nlopt_set_min_objective(opt, f_obj_1d, lineshape_data);
   nlopt_set_xtol_rel(opt, 1e-4);
 
   // bounds
-  double lb[4] = { -1, 1e-6, 0, 0 };
-  double ub[4] = { 1, 1, 2, 0 };
-  nlopt_set_lower_bounds(opt, lb);
-  nlopt_set_upper_bounds(opt, ub);
+  nlopt_set_lower_bounds(opt, &(lb[0]));
+  nlopt_set_upper_bounds(opt, &(ub[0]));
     
   // Minimum objective value, upon return
   double minf; 						

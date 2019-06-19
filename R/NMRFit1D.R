@@ -645,7 +645,14 @@ setMethod("fit", "NMRFit1D",
     #---------------------------------------
     # Performing the fit
     start.time <- proc.time()
-    fit_lineshape_1d(x, y, par$par)
+    par$ub[seq(4, length(par$lb), by = 4)] <- 0
+    #par$ub[seq(3, length(par$lb), by = 4)] <- 1
+    print(par$par)
+    print(par$lb)
+    print(par$ub)
+    print(max(Re(y)))
+    fit_lineshape_1d(x, y, par$par, par$lb, par$ub, 
+                     n.peaks, n.baseline, n.phase)
     object@time <- as.numeric(proc.time() - start.time)[3]
 
     #---------------------------------------
@@ -1372,7 +1379,7 @@ setMethod("f_baseline", "NMRFit1D",
     if ( length(baseline) == 0 ) {
       function(x) {
         zeros <- rep(0, length(x))
-        f_out(complex(zeros, zeros))
+        f_out(complex(re = zeros, im = zeros))
       }
     }
     # Otherwise, generating actual baseline function

@@ -37,7 +37,7 @@ std::vector< std::complex<double> > lineshape_1d(
       for (int j = 0; j < n; j++) {
         z = (x[j] - p)/wl;
         out.at(j) = out.at(j) + 
-          (std::complex<double> (h, z)) / (std::complex<double> (1 + z*z, 0));
+          (std::complex<double> (1, z)) * (std::complex<double> (h/(1 + z*z), 0));
       }
     }
     // If the value is 1, proceed as Gauss
