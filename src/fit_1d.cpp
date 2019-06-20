@@ -4,7 +4,7 @@
 #include <Rcpp.h>
 #include <nloptrAPI.h>
 #include "Faddeeva.h"
-
+#include "rnmrfit.h"
 
 
 //' @importFrom Rcpp sourceCpp
@@ -12,48 +12,36 @@
 //' @useDynLib rnmrfit
 
 
-
-//==============================================================================
-// Lineshape and constraint structures
-typedef struct {
-  std::vector< double > x;	
-  std::vector< std::complex<double> > y;	
-  std::vector< std::complex<double> > temp_fit;
-  std::vector< std::complex<double> > temp_diff;
-  std::vector< std::vector < std::complex<double> > > temp_grad;
-  int n_points, n_par, n_peaks, n_baseline, n_phase, count;
-} stored_data;
-
-
 //==============================================================================
 // Lineshape functions
+//------------------------------------------------------------------------------
+// All lineshape functions take a series of peak parameters and use those
+// parameters to increment fit data in a data_lineshape structure. To reuse the
+// same functions for 1D and 2D analysis, the fits are divided by resonance
+// index, which should be kept at 0 for 1D usage.
 
 //------------------------------------------------------------------------------
-void lorentz_1d(int j, const double *par, double *grad, void *lineshape_data) {
+void lorentz(double p, double wl, double h, 
+             int i_res, int i_par, double *grad, void *data) {
 
 	using namespace std;
 
-  // Unpacking lineshape_data structure
-  stored_data *sd = (stored_data *) lineshape_data;
-  vector< double > x = sd->x;
-  vector< complex<double> > *temp_fit = &(sd->temp_fit);
-  vector< vector < complex<double> > > *temp_grad = &(sd->temp_grad);
-  int n_points = sd->n_points;
-  int n_peaks = sd->n_peaks;
-
-  // Extracting parameters
-  double p = par[j*4];
-  double wl = par[j*4+1];
-  double h = par[j*4+2];
+  // Unpacking data structure
+  data_lineshape *d = (data_lineshape *) data;
+  
+  vector< double > x = d->x;
+  
+  vector< complex<double> > *temp_fit = &(d->temp_fit.at(i_res));
+  vector< vector < complex<double> > > *temp_grad = &(d->temp_grad);
 
   // Main terms
-  complex<double> fi, dfdz, dfdp, dfdwl, dzdwl, dzdp;
+  complex<double> fo, dfdz, dfdp, dfdwl, dzdwl, dzdp;
 
   // Commonly used intermediate values
   double z, z2, z2p1;
 
   // Looping through each x value
-  for(int i = 0; i < n_points; i++ ) {
+  for(int i = 0; i < x.size(); i++ ) {
 
     // Pre-calculating common values
     z = (x.at(i)-p)/wl;
@@ -61,11 +49,11 @@ void lorentz_1d(int j, const double *par, double *grad, void *lineshape_data) {
     z2p1 = z2 + 1;
 
     // Calculating an intermediate f with no h term
-    fi = ( complex<double> (1, z) ) / 
+    fo = ( complex<double> (1, z) ) / 
          ( complex<double> (z2p1, 0) );
        
     // Tacking on the h
-    (*temp_fit).at(i) += ( complex<double> (h, 0) ) * fi;
+    (*temp_fit).at(i) += ( complex<double> (h, 0) ) * fo;
 
     // Only compute derivatives if required
     if ( grad ) {
@@ -78,17 +66,17 @@ void lorentz_1d(int j, const double *par, double *grad, void *lineshape_data) {
 
       // Position gradient
       dfdp = dfdz*dzdp;
-      (*temp_grad).at(i).at(j*4) = dfdp;
+      (*temp_grad).at(i).at(i_par) = dfdp;
 
       // Lorentz width gradient
       dfdwl = dfdz*dzdwl;
-      (*temp_grad).at(i).at(j*4+1) = dfdwl;
+      (*temp_grad).at(i).at(i_par+1) = dfdwl;
 
       // Height gradient
-      (*temp_grad).at(i).at(j*4+2) = fi;
+      (*temp_grad).at(i).at(i_par+2) = fo;
 
       // Fraction gradient
-      (*temp_grad).at(i).at(j*4+3) = 0;
+      (*temp_grad).at(i).at(i_par+3) = 0;
     }
   }
 
@@ -100,21 +88,24 @@ void lorentz_1d(int j, const double *par, double *grad, void *lineshape_data) {
 //===============================================================================
 // NLOPT objective function
 
-double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_data) {
+double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
     
 	using namespace std;
-  
+
   // Unpacking lineshape_data structure
-  stored_data *sd = (stored_data *) lineshape_data;
-  vector< double > x = sd->x;
-  vector< complex<double> > y = sd->y;
-  vector< complex<double> > *temp_fit = &(sd->temp_fit);
-  vector< complex<double> > *temp_diff = &(sd->temp_diff);
-  vector< vector < complex<double> > > *temp_grad = &(sd->temp_grad);
-  int n_points = sd->n_points;
-  int n_par = sd->n_par;
-  int n_peaks = sd->n_peaks;
-  int *count = &(sd->count);
+  data_1d *d = (data_1d *) data;
+
+  vector< vector<double> > y = d->y;
+  vector< vector<double> > *y_diff = &(d->y_diff);
+  int n_par = d->n_par;
+  int n_peaks = d->n_peaks;
+  int *count = &(d->count);
+
+  data_lineshape *data_direct = &(d->lineshape);
+  data_lineshape *d1 = (data_lineshape *) data_direct;
+
+  vector< complex<double> > *temp_fit = &(d1->temp_fit.at(0));
+  vector< vector < complex<double> > > *temp_grad = &(d1->temp_grad);
 
   *count += 1;
 
@@ -122,27 +113,34 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
   // Calculate lineshape temp_fit, and gradients grad
 
   // Reseting temporary fit to zero
-  for(int i = 0; i < n_points; i++ ) {
+  for(int i = 0; i < (*temp_fit).size(); i++ ) {
     (*temp_fit).at(i) = complex<double> (0, 0);
   }
   
-  // Outer loop iterates over every peak
-  for (int j = 0; j < n_peaks; j++) {
+  // Loop over peaks
+  for (int i = 0; i < n_peaks; i++) {
+
+    double p = par[i*4];
+    double wl = par[i*4+1];
+    double h = par[i*4+2];
+    double f = par[i*4+3];
     
     // If the fraction gauss value is 0, proceed as Lorentz (w becomes wl)
-    // if ( par[j*4+3] == 0 ) {
     if ( true ) {
-		  lorentz_1d(j, par, grad, lineshape_data);	
+		  lorentz(p, wl, h, 0, i*4, grad, data_direct);	
     }
   }
 	
 	// Sum of squares
 	double eval = 0;
   
-  for (int i = 0; i < n_points; i++) {
-	  (*temp_diff).at(i) = y.at(i) - (*temp_fit).at(i); 
-	  eval += (*temp_diff).at(i).real() * (*temp_diff).at(i).real();
-    eval += (*temp_diff).at(i).imag() * (*temp_diff).at(i).imag();
+  // For 1D fit, rely that indexes of y and lineshape data match up
+  for (int i = 0; i < y.size(); i++) {
+	  (*y_diff).at(i).at(0) = y.at(i).at(0) - (*temp_fit).at(i).real(); 
+	  eval += (*y_diff).at(i).at(0) * (*y_diff).at(i).at(0);
+
+	  (*y_diff).at(i).at(1) = y.at(i).at(1) - (*temp_fit).at(i).imag(); 
+	  eval += (*y_diff).at(i).at(1) * (*y_diff).at(i).at(1);
   }
 
   // Gradients
@@ -150,11 +148,11 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
     for (int j = 0; j < n_par; j++) {
       grad[j] = 0;
     
-      for (int i = 0; i < n_points; i++) {
-        grad[j] += -2*( (*temp_diff).at(i).real() * 
+      for (int i = 0; i < y.size(); i++) {
+        grad[j] += -2*( (*y_diff).at(i).at(0) * 
                         (*temp_grad).at(i).at(j).real() );
 
-        grad[j] += -2*( (*temp_diff).at(i).imag() * 
+        grad[j] += -2*( (*y_diff).at(i).at(1) * 
                         (*temp_grad).at(i).at(j).imag() );
       }
     }
@@ -171,45 +169,61 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *lineshape_dat
 //' @export
 // [[Rcpp::export]]
 double fit_lineshape_1d(
-  const Rcpp::NumericVector x, const Rcpp::ComplexVector y,
+  const Rcpp::NumericVector x_val, const Rcpp::ComplexVector y_val,
   Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub,
   int n_peaks, int n_baseline, int n_phase) {
 
   using namespace std;
 
-  Rcpp::Function R_is_fin("is.finite");
-
   //--------------------
   // Converting and storing data
   
-  int n_points = y.size();
+  int n_points = y_val.size();
   int n_par = par.size();
 
   // x and y data  
-  vector< complex<double> > y_store(n_points, complex<double> (0,0));
-  vector< double > x_store(n_points, 0);
+  vector< vector<double> > y(n_points, vector<double> (2,0) );
+  vector< vector<double> > y_fit(n_points, vector<double> (2,0) );
+  vector< vector<double> > y_diff(n_points, vector<double> (2,0) );
+  vector< double > x(n_points, 0);
 
   Rcpp::Function R_re("Re");
   Rcpp::Function R_im("Im");
 
+  // For 1D fit, x and y can be treated as paired
   for (int i = 0; i < n_points; i++) {
-    y_store.at(i) = complex<double> (Rcpp::as<double>(R_re(y.at(i))),
-                                     Rcpp::as<double>(R_im(y.at(i))));
-    x_store.at(i) = x.at(i);
+    y.at(i).at(0) = Rcpp::as<double>(R_re(y_val.at(i)));
+    y.at(i).at(1) = Rcpp::as<double>(R_im(y_val.at(i)));
+    x.at(i) = x_val.at(i);
   }
 
-  // Gradient and fit terms
-  vector< complex<double> > temp_fit(n_points, complex<double> (0,0));
-  vector< complex<double> > temp_diff(n_points, complex<double> (0,0));
-  vector< vector < complex<double> > > 
-    temp_grad(n_points, vector< std::complex<double> > 
-        ( n_par, std::complex<double> (0,0) ) 
-    );
+  // First, packing lineshape data
+  data_lineshape data_direct;
+  
+  data_direct.x = x;
 
-  // Packing lineshape structure
-  stored_data lineshape_data[11] = {
-    x_store, y_store, temp_fit, temp_diff, temp_grad, 
-    n_points, n_par, n_peaks, n_baseline, n_phase, 0};
+  vector< vector < complex<double> > > 
+    direct_temp_fit( 1, vector< std::complex<double> > 
+                     ( n_points, std::complex<double> (0,0) ) );
+  data_direct.temp_fit = direct_temp_fit;
+  
+  vector< vector < complex<double> > > 
+    direct_temp_grad( n_points, vector< std::complex<double> > 
+                      ( n_par, std::complex<double> (0,0) ) );
+  data_direct.temp_grad = direct_temp_grad;
+
+  // And then packing general data
+  data_1d data[1];
+
+  data[0].lineshape = data_direct;
+  data[0].y = y;
+  data[0].y_fit = y_fit;
+  data[0].y_diff = y_diff;
+  data[0].n_par = n_par;
+  data[0].n_peaks = n_peaks;
+  data[0].n_baseline = n_baseline;
+  data[0].n_phase = n_phase;
+  data[0].count = 0;
 
   //--------------------
   // Setting up the optimizer
@@ -218,7 +232,7 @@ double fit_lineshape_1d(
 
   opt = nlopt_create(NLOPT_LD_SLSQP, n_par);    
   //opt = nlopt_create(NLOPT_LN_COBYLA, n_par); 
-  nlopt_set_min_objective(opt, f_obj_1d, lineshape_data);
+  nlopt_set_min_objective(opt, f_obj_1d, &data[0]);
   nlopt_set_xtol_rel(opt, 1e-4);
 
   // bounds
@@ -231,8 +245,8 @@ double fit_lineshape_1d(
   //--------------------
   // Running it
 
-  stored_data *sd = (stored_data *) lineshape_data;
-  int *count = &(sd->count);
+  data_1d *d = (data_1d *) data;
+  int *count = &(d->count);
 
   if ( nlopt_optimize(opt, &(par[0]), &minf ) < 0) {
     Rcpp::Rcout << "nlopt failed!" << std::endl;
