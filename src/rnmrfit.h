@@ -26,6 +26,13 @@ typedef struct {
   int n_par, n_peaks, n_baseline, n_phase, count;
 } data_1d;
 
+typedef struct {
+  std::vector< bool > sign;	
+  std::vector< int > peak_number_1;	
+  std::vector< int > peak_number_2;	
+  double offset;
+} data_constraint;
+
 
 //==============================================================================
 // Prototypes

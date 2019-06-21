@@ -12,6 +12,56 @@
 //' @useDynLib rnmrfit
 
 
+
+//==============================================================================
+// Constraint functions
+//------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+double constrain_position(unsigned n, const double *x, 
+                          double *grad, void *data) {
+
+	using namespace std;
+
+  // Unpacking data structure
+  data_constraint *d = (data_constraint *) data;
+  
+  vector< bool > sign = d->sign;	
+  vector< int > peak_number = d->peak_number_1;	
+  double offset = d->offset;
+
+  // Ensuring that the gradient is zero for all unaffected terms
+  if ( grad ) {
+    for (int i; i < n; i++) {
+      grad[i] = 0;
+    }
+  }
+
+  // Evaluating
+  double eval = 0;
+
+  for (int i; i < peak_number.size(); i++) {
+
+    // Converting peak number to index
+    int j = (peak_number.at(i) - 1)*4;
+
+    // Extracting out sign
+    bool neg = sign.at(i);
+
+    if ( neg ) { eval -= x[j]; }
+    else { eval += x[j]; }
+
+    if (grad) {
+      if ( neg ) { grad[j] -= 1; }
+      else { grad[j] += 1; }
+    }
+  }
+  
+  return (eval - offset);
+}
+
+
+
 //==============================================================================
 // Lineshape functions
 //------------------------------------------------------------------------------
@@ -83,10 +133,11 @@ void lorentz(double p, double wl, double h,
   return; 
 }
 
+//==============================================================================
+// 1D fitting
 
-
-//===============================================================================
-// NLOPT objective function
+//------------------------------------------------------------------------------
+// Objective function
 
 double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
     
@@ -134,7 +185,7 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 	// Sum of squares
 	double eval = 0;
   
-  // For 1D fit, rely that indexes of y and lineshape data match up
+  // For 1D fit, assume that indexes of y and lineshape data match up
   for (int i = 0; i < y.size(); i++) {
 	  (*y_diff).at(i).at(0) = y.at(i).at(0) - (*temp_fit).at(i).real(); 
 	  eval += (*y_diff).at(i).at(0) * (*y_diff).at(i).at(0);
@@ -163,14 +214,15 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 
 
 
-//===========================================================================
-//Main function called from R
+//------------------------------------------------------------------------------
+// Main function called from R
 
 //' @export
 // [[Rcpp::export]]
 double fit_lineshape_1d(
   const Rcpp::NumericVector x_val, const Rcpp::ComplexVector y_val,
   Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub,
+  Rcpp::List eq,
   int n_peaks, int n_baseline, int n_phase) {
 
   using namespace std;
@@ -203,13 +255,13 @@ double fit_lineshape_1d(
   data_direct.x = x;
 
   vector< vector < complex<double> > > 
-    direct_temp_fit( 1, vector< std::complex<double> > 
-                     ( n_points, std::complex<double> (0,0) ) );
+    direct_temp_fit( 1, vector< complex<double> > 
+                     ( n_points, complex<double> (0,0) ) );
   data_direct.temp_fit = direct_temp_fit;
   
   vector< vector < complex<double> > > 
-    direct_temp_grad( n_points, vector< std::complex<double> > 
-                      ( n_par, std::complex<double> (0,0) ) );
+    direct_temp_grad( n_points, vector< complex<double> > 
+                      ( n_par, complex<double> (0,0) ) );
   data_direct.temp_grad = direct_temp_grad;
 
   // And then packing general data
@@ -226,7 +278,7 @@ double fit_lineshape_1d(
   data[0].count = 0;
 
   //--------------------
-  // Setting up the optimizer
+  // Initializing the optimizer
 
   nlopt_opt opt;
 
@@ -235,9 +287,40 @@ double fit_lineshape_1d(
   nlopt_set_min_objective(opt, f_obj_1d, &data[0]);
   nlopt_set_xtol_rel(opt, 1e-4);
 
-  // bounds
+  // Bounds
   nlopt_set_lower_bounds(opt, &(lb[0]));
   nlopt_set_upper_bounds(opt, &(ub[0]));
+
+  //--------------------
+  // Adding constraints
+
+  // First the equality constraints
+  int n_eq = eq.size();
+  data_constraint data_eq[n_eq];
+
+  for (int i = 0; i < n_eq; i++) {
+
+    vector< double > constraints = eq.at(i); 
+    int n_terms = constraints.size() - 2;
+
+    data_eq[i].offset = constraints.at(1);
+
+    data_eq[i].sign = vector< bool > ( n_terms, 0);
+    data_eq[i].peak_number_1 = vector< int > ( n_terms, 0);
+
+    for (int j = 0; j < n_terms; j++) {
+      bool neg = signbit(constraints.at(j+2));
+      data_eq[i].sign[j] = neg;
+      if ( neg ) { data_eq[i].peak_number_1[j] = -round(constraints.at(j+2)); }
+      else { data_eq[i].peak_number_1[j] = round(constraints.at(j+2)); }
+    }
+
+    // Adding constraint based on flag
+    int flag = round(constraints.at(0));
+    if ( flag == 0 ) {
+      nlopt_add_equality_constraint(opt, constrain_position, &data_eq[i], 1e-8);
+    }
+  }
     
   // Minimum objective value, upon return
   double minf; 						

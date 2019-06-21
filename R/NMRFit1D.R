@@ -601,17 +601,17 @@ setMethod("fit", "NMRFit1D",
             # Then, the width
             leeway <- width.leeway
             if ( leeway == 0 ) {
-              new.constraint <- c(1, ratio, which(logic.2), -which(logic.1))
+              new.constraint <- c(1, 1, which(logic.2), -which(logic.1))
               eq.constraints <- c(eq.constraints, list(new.constraint))
             }
             else {
               # The upper bounds
-              new.constraint <- c(1, ratio*(1+leeway), 
+              new.constraint <- c(1, (1+leeway), 
                                   which(logic.2), -which(logic.1))
               ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
               # The lower bound
-              new.constraint <- c(1, 1/(ratio*(1-leeway)), 
+              new.constraint <- c(1, 1/(1-leeway), 
                                   -which(logic.2), which(logic.1))
               ineq.constraints <- c(ineq.constraints, list(new.constraint))
             }
@@ -646,12 +646,11 @@ setMethod("fit", "NMRFit1D",
     # Performing the fit
     start.time <- proc.time()
     par$ub[seq(4, length(par$lb), by = 4)] <- 0
-    #par$ub[seq(3, length(par$lb), by = 4)] <- 1
-    print(par$par)
-    print(par$lb)
-    print(par$ub)
-    print(max(Re(y)))
-    fit_lineshape_1d(x, y, par$par, par$lb, par$ub, 
+
+    print(eq.constraints)
+    print(ineq.constraints)
+
+    fit_lineshape_1d(x, y, par$par, par$lb, par$ub, eq.constraints,
                      n.peaks, n.baseline, n.phase)
     object@time <- as.numeric(proc.time() - start.time)[3]
 
