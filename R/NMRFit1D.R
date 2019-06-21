@@ -649,6 +649,9 @@ setMethod("fit", "NMRFit1D",
 
     print(eq.constraints)
     print(ineq.constraints)
+    area.const <- eq.constraints[seq(3, length(eq.constraints), by = 3)]
+    width.const <- eq.constraints[seq(2, length(eq.constraints), by = 3)]
+
 
     fit_lineshape_1d(x, y, par$par, par$lb, par$ub, eq.constraints,
                      n.peaks, n.baseline, n.phase)

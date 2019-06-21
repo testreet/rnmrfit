@@ -17,6 +17,8 @@
 // Constraint functions
 //------------------------------------------------------------------------------
 
+
+
 //------------------------------------------------------------------------------
 double constrain_position(unsigned n, const double *x, 
                           double *grad, void *data) {
@@ -32,7 +34,7 @@ double constrain_position(unsigned n, const double *x,
 
   // Ensuring that the gradient is zero for all unaffected terms
   if ( grad ) {
-    for (int i; i < n; i++) {
+    for (int i = 0; i < n; i++) {
       grad[i] = 0;
     }
   }
@@ -40,7 +42,7 @@ double constrain_position(unsigned n, const double *x,
   // Evaluating
   double eval = 0;
 
-  for (int i; i < peak_number.size(); i++) {
+  for (int i = 0; i < peak_number.size(); i++) {
 
     // Converting peak number to index
     int j = (peak_number.at(i) - 1)*4;
@@ -52,13 +54,172 @@ double constrain_position(unsigned n, const double *x,
     else { eval += x[j]; }
 
     if (grad) {
-      if ( neg ) { grad[j] -= 1; }
-      else { grad[j] += 1; }
+      if ( neg ) { grad[j] = -1; }
+      else { grad[j] = 1; }
     }
   }
   
   return (eval - offset);
 }
+
+
+
+//------------------------------------------------------------------------------
+double constrain_width(unsigned n, const double *x, 
+                      double *grad, void *data) {
+
+	using namespace std;
+
+  // Unpacking data structure
+  data_constraint *d = (data_constraint *) data;
+  
+  vector< bool > sign = d->sign;	
+  vector< int > peak_number = d->peak_number_1;	
+  double offset = d->offset;
+
+  // Ensuring that the gradient is zero for all unaffected terms
+  if ( grad ) {
+    for (int i = 0; i < n; i++) {
+      grad[i] = 0;
+    }
+  }
+
+  // Unlike position the width constraints divides the sum
+  // of all "positive" indexes by the sum of all "negative" indexes so
+  // it's necessary to do 2 passes: one calculate the evaluation and another
+  // to calculate the gradients.
+
+  // First pass to calculate evaluation
+  double numerator = 0;
+  double denominator = 0;
+
+  for (int i = 0; i < peak_number.size(); i++) {
+
+    // Converting peak number to index of width
+    int j = (peak_number.at(i) - 1)*4 + 1;
+
+    // Extracting out sign
+    bool neg = sign.at(i);
+
+    if ( neg ) { denominator += x[j]; }
+    else { numerator += x[j]; }
+  }
+
+  double eval = numerator/denominator;
+
+  // Second pass to calculate gradients
+  if ( grad ) {
+
+    // All gradient terms are the same
+    double grad_pos = 1/denominator;
+    double grad_neg = -eval/denominator;
+
+    for (int i = 0; i < peak_number.size(); i++) {
+
+      // Converting peak number to index of width
+      int j = (peak_number.at(i) - 1)*4 + 1;
+
+      // Extracting out sign
+      bool neg = sign.at(i);
+
+      if ( neg ) { grad[j] = grad_neg; }
+      else {  grad[j] = grad_pos; }
+    }
+  }
+  
+  return (eval - offset);
+}
+
+//------------------------------------------------------------------------------
+double constrain_area(unsigned n, const double *x, 
+                      double *grad, void *data) {
+
+	using namespace std;
+
+  // Unpacking data structure
+  data_constraint *d = (data_constraint *) data;
+  
+  vector< bool > sign = d->sign;	
+  vector< int > peak_number = d->peak_number_1;	
+  double offset = d->offset;
+
+  // Ensuring that the gradient is zero for all unaffected terms
+  if ( grad ) {
+    for (int i = 0; i < n; i++) {
+      grad[i] = 0;
+    }
+  }
+
+  // Unlike position the area constraints divides the sum
+  // of all "positive" indexes by the sum of all "negative" indexes so
+  // it's necessary to do 2 passes: one calculate the evaluation and another
+  // to calculate the gradients.
+
+  // First pass to calculate evaluation
+  double numerator = 0;
+  double denominator = 0;
+
+  for (int i = 0; i < peak_number.size(); i++) {
+
+    // Converting peak number to index
+    int j = (peak_number.at(i) - 1)*4;
+
+    double w = x[j+1];
+    double h = x[j+2];
+    double f = x[j+3];
+    double area = 0;
+
+    // Area calculation depends on fraction
+    if ( f < 1e-6 ) { area = M_PI * w * h; }
+    else { Rcpp::stop("Gauss and Voigt peaks are not currently supported"); }
+
+    // Extracting out sign
+    bool neg = sign.at(i);
+
+    if ( neg ) { denominator += area; }
+    else { numerator += area; }
+  }
+
+  double eval = numerator/denominator;
+
+  // Second pass to calculate gradients
+  if ( grad ) {
+
+    // Calculating some common terms
+    double dfda_pos = 1/denominator;
+    double dfda_neg = -eval/denominator;
+    double dfda = 0;
+
+    for (int i = 0; i < peak_number.size(); i++) {
+
+      // Converting peak number to index
+      int j = (peak_number.at(i) - 1)*4;
+
+      double w = x[j+1];
+      double h = x[j+2];
+      double f = x[j+3];
+
+      // Extracting out sign
+      bool neg = sign.at(i);
+
+      if ( neg ) { dfda = dfda_neg; }
+      else { dfda = dfda_pos; }
+
+      // Gradient calculations depend on fraction
+      if ( f < 1e-6 ) {
+        // Width
+        grad[j+1] = dfda * M_PI * h;
+        // Height
+        grad[j+2] = dfda * M_PI * w;
+      } else { 
+        Rcpp::stop("Gauss and Voigt peaks are not currently supported"); 
+      }
+    }
+  }
+  
+  return (eval - offset);
+}
+
 
 
 
@@ -69,6 +230,8 @@ double constrain_position(unsigned n, const double *x,
 // parameters to increment fit data in a data_lineshape structure. To reuse the
 // same functions for 1D and 2D analysis, the fits are divided by resonance
 // index, which should be kept at 0 for 1D usage.
+
+
 
 //------------------------------------------------------------------------------
 void lorentz(double p, double wl, double h, 
@@ -319,6 +482,12 @@ double fit_lineshape_1d(
     int flag = round(constraints.at(0));
     if ( flag == 0 ) {
       nlopt_add_equality_constraint(opt, constrain_position, &data_eq[i], 1e-8);
+    } else if ( flag == 1) {
+      nlopt_add_equality_constraint(opt, constrain_width, &data_eq[i], 1e-8);
+    } else if ( flag == 2) {
+      nlopt_add_equality_constraint(opt, constrain_area, &data_eq[i], 1e-8);
+    } else {
+      Rcpp::stop("Encountered undefined constraint. Aborting.");
     }
   }
     
