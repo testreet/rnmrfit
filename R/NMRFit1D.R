@@ -291,33 +291,28 @@ nmrfit_1d <- function(
   #---------------------------------------
   # Generating list of species 
 
+  # If the original species aren't a list, place them into a list
+  if ( class(species) == 'character' ) species <- as.list(species)
+  else if ( class(species) != 'list' ) species <- list(species)
 
-  # If the species object is just a single species, add it to list
-  if ( class(species) == 'NMRSpecies1D' ) {
-    species.list <- list(species)
-  }
-  # Otherwise, loop through
-  else {
+  species.list <- list()
 
-    species.list <- list()
-  
-    for (i in 1:length(species)) {
+  for (i in 1:length(species)) {
 
-      specie <- species[[i]]
+    specie <- species[[i]]
 
-      # If the object is already an NMRSpecies1D object, add it directly
-      if ( class(specie) == 'NMRSpecies1D' ) {
-        species.list <- c(species.list, specie)
-      }
-      # Otherwise, feed it into the nmrspecies_1d constructor
-      else {
-        species.list <- c(species.list, nmrspecies_1d(specie, ...))
-      }
-          
-      # Modifying id if provided
-      specie.id <- names(species)[i]
-      if (! is.null(specie.id) ) id(species.list[[i]]) <- specie.id
+    # If the object is already an NMRSpecies1D object, add it directly
+    if ( class(specie) == 'NMRSpecies1D' ) {
+      species.list <- c(species.list, specie)
     }
+    # Otherwise, feed it into the nmrspecies_1d constructor
+    else {
+      species.list <- c(species.list, nmrspecies_1d(specie, ...))
+    }
+        
+    # Modifying id if provided
+    specie.id <- names(species)[i]
+    if (! is.null(specie.id) ) id(species.list[[i]]) <- specie.id
   }
 
   #---------------------------------------
@@ -547,14 +542,14 @@ setMethod("fit", "NMRFit1D",
             ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
             # The lower bound
-            new.constraint <- c(2, 1/(ratio*(1-leeway)), 
+            new.constraint <- c(2, 1/(ratio*(1+leeway)), 
                                 -which(logic.2), which(logic.1))
             ineq.constraints <- c(ineq.constraints, list(new.constraint))
           }
         }
       }
 
-      # Then looping through each specific resonance whithin each species
+      # Then looping through each specific resonance within each species
       for (resonance in specie@resonances) {
 
         # At the species level, constraints are based on overall area sums
@@ -623,6 +618,18 @@ setMethod("fit", "NMRFit1D",
               eq.constraints <- c(eq.constraints, list(new.constraint))
             }
             else {
+              # Inequality constraints around percentages can be problematic
+              # since 10% of a 2x peak area difference doen't directly map
+              # to a 10% difference around the inverse 0.5x. As such, all
+              # ratio are treated as being greater than 1, with indexes
+              # flipped to accomodate.
+              if ( ratio < 1 ) {
+                ratio <- 1/ratio
+                temp.logic <- logic.1
+                logic.1 <- logic.2
+                logic.2 <- temp.logic
+              }
+
               # The upper bounds
               new.constraint <- c(2, ratio*(1+leeway), 
                                   which(logic.2), -which(logic.1))
@@ -649,11 +656,11 @@ setMethod("fit", "NMRFit1D",
 
     print(eq.constraints)
     print(ineq.constraints)
-    area.const <- eq.constraints[seq(3, length(eq.constraints), by = 3)]
-    width.const <- eq.constraints[seq(2, length(eq.constraints), by = 3)]
+    print(par$ub)
+    print(par$lb)
 
-
-    fit_lineshape_1d(x, y, par$par, par$lb, par$ub, eq.constraints,
+    fit_lineshape_1d(x, y, par$par, par$lb, par$ub, 
+                     eq.constraints, ineq.constraints,
                      n.peaks, n.baseline, n.phase)
     object@time <- as.numeric(proc.time() - start.time)[3]
 

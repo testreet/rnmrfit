@@ -6,8 +6,8 @@
 using namespace Rcpp;
 
 // fit_lineshape_1d
-double fit_lineshape_1d(const Rcpp::NumericVector x_val, const Rcpp::ComplexVector y_val, Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub, Rcpp::List eq, int n_peaks, int n_baseline, int n_phase);
-RcppExport SEXP _rnmrfit_fit_lineshape_1d(SEXP x_valSEXP, SEXP y_valSEXP, SEXP parSEXP, SEXP lbSEXP, SEXP ubSEXP, SEXP eqSEXP, SEXP n_peaksSEXP, SEXP n_baselineSEXP, SEXP n_phaseSEXP) {
+double fit_lineshape_1d(const Rcpp::NumericVector x_val, const Rcpp::ComplexVector y_val, Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub, Rcpp::List eq, Rcpp::List ineq, int n_peaks, int n_baseline, int n_phase);
+RcppExport SEXP _rnmrfit_fit_lineshape_1d(SEXP x_valSEXP, SEXP y_valSEXP, SEXP parSEXP, SEXP lbSEXP, SEXP ubSEXP, SEXP eqSEXP, SEXP ineqSEXP, SEXP n_peaksSEXP, SEXP n_baselineSEXP, SEXP n_phaseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -17,10 +17,11 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type lb(lbSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type ub(ubSEXP);
     Rcpp::traits::input_parameter< Rcpp::List >::type eq(eqSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type ineq(ineqSEXP);
     Rcpp::traits::input_parameter< int >::type n_peaks(n_peaksSEXP);
     Rcpp::traits::input_parameter< int >::type n_baseline(n_baselineSEXP);
     Rcpp::traits::input_parameter< int >::type n_phase(n_phaseSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_lineshape_1d(x_val, y_val, par, lb, ub, eq, n_peaks, n_baseline, n_phase));
+    rcpp_result_gen = Rcpp::wrap(fit_lineshape_1d(x_val, y_val, par, lb, ub, eq, ineq, n_peaks, n_baseline, n_phase));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -48,7 +49,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_rnmrfit_fit_lineshape_1d", (DL_FUNC) &_rnmrfit_fit_lineshape_1d, 9},
+    {"_rnmrfit_fit_lineshape_1d", (DL_FUNC) &_rnmrfit_fit_lineshape_1d, 10},
     {"_rnmrfit_lineshape_1d", (DL_FUNC) &_rnmrfit_lineshape_1d, 2},
     {"_rnmrfit_test_list", (DL_FUNC) &_rnmrfit_test_list, 1},
     {NULL, NULL, 0}

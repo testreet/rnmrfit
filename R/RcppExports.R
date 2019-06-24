@@ -7,8 +7,8 @@
 NULL
 
 #' @export
-fit_lineshape_1d <- function(x_val, y_val, par, lb, ub, eq, n_peaks, n_baseline, n_phase) {
-    .Call('_rnmrfit_fit_lineshape_1d', PACKAGE = 'rnmrfit', x_val, y_val, par, lb, ub, eq, n_peaks, n_baseline, n_phase)
+fit_lineshape_1d <- function(x_val, y_val, par, lb, ub, eq, ineq, n_peaks, n_baseline, n_phase) {
+    .Call('_rnmrfit_fit_lineshape_1d', PACKAGE = 'rnmrfit', x_val, y_val, par, lb, ub, eq, ineq, n_peaks, n_baseline, n_phase)
 }
 
 #' Generate 1D-NMR peak lineshape

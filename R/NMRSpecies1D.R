@@ -144,9 +144,14 @@ setValidity("NMRSpecies1D", validNMRSpecies1D)
 nmrspecies_1d <- function(resonances, areas = NULL, id = NULL, 
                           connections.leeway = 0, ...) {
 
+
   #---------------------------------------
   # Generating list of resonances
   resonances.list <- list()
+
+  # If the original resonance aren't a list, place them into a list
+  if ( class(resonances) == 'character' ) resonances <- as.list(resonances)
+  else if ( class(resonances) != 'list' ) resonances <- list(resonances)
 
   for (i in 1:length(resonances)) {
 

@@ -385,8 +385,7 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 double fit_lineshape_1d(
   const Rcpp::NumericVector x_val, const Rcpp::ComplexVector y_val,
   Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub,
-  Rcpp::List eq,
-  int n_peaks, int n_baseline, int n_phase) {
+  Rcpp::List eq, Rcpp::List ineq, int n_peaks, int n_baseline, int n_phase) {
 
   using namespace std;
 
@@ -487,7 +486,44 @@ double fit_lineshape_1d(
     } else if ( flag == 2) {
       nlopt_add_equality_constraint(opt, constrain_area, &data_eq[i], 1e-8);
     } else {
-      Rcpp::stop("Encountered undefined constraint. Aborting.");
+      Rcpp::stop("Encountered undefined equality constraint. Aborting.");
+    }
+  }
+
+  // The inequality constraint proceed exactly the same as the equality ones
+  int n_ineq = ineq.size();
+  data_constraint data_ineq[n_ineq];
+
+  for (int i = 0; i < n_ineq; i++) {
+
+    vector< double > constraints = ineq.at(i); 
+    int n_terms = constraints.size() - 2;
+
+    data_ineq[i].offset = constraints.at(1);
+
+    data_ineq[i].sign = vector< bool > ( n_terms, 0);
+    data_ineq[i].peak_number_1 = vector< int > ( n_terms, 0);
+
+    for (int j = 0; j < n_terms; j++) {
+      bool neg = signbit(constraints.at(j+2));
+      data_ineq[i].sign[j] = neg;
+      if ( neg ) { data_ineq[i].peak_number_1[j] = -round(constraints.at(j+2));}
+      else { data_ineq[i].peak_number_1[j] = round(constraints.at(j+2)); }
+    }
+
+    // Adding constraint based on flag
+    int flag = round(constraints.at(0));
+    if ( flag == 0 ) {
+      nlopt_add_inequality_constraint(opt, constrain_position, 
+                                      &data_ineq[i], 1e-8);
+    } else if ( flag == 1) {
+      nlopt_add_inequality_constraint(opt, constrain_width, 
+                                      &data_ineq[i], 1e-8);
+    } else if ( flag == 2) {
+      nlopt_add_inequality_constraint(opt, constrain_area, 
+                                      &data_ineq[i], 1e-8);
+    } else {
+      Rcpp::stop("Encountered undefined inequality constraint. Aborting.");
     }
   }
     
