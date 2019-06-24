@@ -147,6 +147,17 @@ validNMRResonance1D <- function(object) {
   }
 
   #---------------------------------------
+  # Checking area and width leeways
+  for ( leeway in c('width', 'area') ) {
+    if ( (couplings.leeway[leeway] < 0) || (couplings.leeway[leeway] >= 1) ) {
+      new.err <- sprintf('"couplings.leeway$%s" must be in the range [0, 1).',
+                         leeway)
+      valid <- FALSE
+      err <- c(err, new.err)
+    }
+  }
+
+  #---------------------------------------
   # Output
   if (valid) TRUE
   else err

@@ -542,7 +542,7 @@ setMethod("fit", "NMRFit1D",
             ineq.constraints <- c(ineq.constraints, list(new.constraint))
 
             # The lower bound
-            new.constraint <- c(2, 1/(ratio*(1+leeway)), 
+            new.constraint <- c(2, 1/(ratio*(1-leeway)), 
                                 -which(logic.2), which(logic.1))
             ineq.constraints <- c(ineq.constraints, list(new.constraint))
           }
@@ -619,10 +619,10 @@ setMethod("fit", "NMRFit1D",
             }
             else {
               # Inequality constraints around percentages can be problematic
-              # since 10% of a 2x peak area difference doen't directly map
+              # since 10% of a 2x peak area difference doesn't directly map
               # to a 10% difference around the inverse 0.5x. As such, all
               # ratio are treated as being greater than 1, with indexes
-              # flipped to accomodate.
+              # flipped to accommodate.
               if ( ratio < 1 ) {
                 ratio <- 1/ratio
                 temp.logic <- logic.1

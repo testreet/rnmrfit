@@ -55,6 +55,7 @@ validNMRSpecies1D <- function(object) {
 
   resonances <- object@resonances
   connections <- object@connections 
+  connections.leeway <- object@connections.leeway
 
   valid <- TRUE
   err <- c()
@@ -92,6 +93,14 @@ validNMRSpecies1D <- function(object) {
       err <- c(err, new.err)
     }
 
+  }
+
+  #---------------------------------------
+  # Checking connections 
+  if ( (connections.leeway < 0) || (connections.leeway >= 1) ) {
+    new.err <- '"connections.leeway" must be in the range [0, 1).'
+    valid <- FALSE
+    err <- c(err, new.err)
   }
 
   #---------------------------------------
@@ -149,7 +158,7 @@ nmrspecies_1d <- function(resonances, areas = NULL, id = NULL,
   # Generating list of resonances
   resonances.list <- list()
 
-  # If the original resonance aren't a list, place them into a list
+  # If the original resonances aren't a list, place them into a list
   if ( class(resonances) == 'character' ) resonances <- as.list(resonances)
   else if ( class(resonances) != 'list' ) resonances <- list(resonances)
 
