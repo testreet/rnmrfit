@@ -86,7 +86,7 @@ double constrain_width(unsigned n, const double *x,
 
   // Unlike position the width constraints divides the sum
   // of all "positive" indexes by the sum of all "negative" indexes so
-  // it's necessary to do 2 passes: one calculate the evaluation and another
+  // it's necessary to do 2 passes: one to calculate the evaluation and another
   // to calculate the gradients.
 
   // First pass to calculate evaluation
@@ -152,7 +152,7 @@ double constrain_area(unsigned n, const double *x,
 
   // Unlike position the area constraints divides the sum
   // of all "positive" indexes by the sum of all "negative" indexes so
-  // it's necessary to do 2 passes: one calculate the evaluation and another
+  // it's necessary to do 2 passes: one to calculate the evaluation and another
   // to calculate the gradients.
 
   // First pass to calculate evaluation
@@ -244,8 +244,8 @@ void lorentz(double p, double wl, double h,
   
   vector< double > x = d->x;
   
-  vector< complex<double> > *temp_fit = &(d->temp_fit.at(i_res));
-  vector< vector < complex<double> > > *temp_grad = &(d->temp_grad);
+  vector< complex<double> > *peak_fit = &(d->peak_fit.at(i_res));
+  vector< vector < complex<double> > > *peak_partial = &(d->peak_partial);
 
   // Main terms
   complex<double> fo, dfdz, dfdp, dfdwl, dzdwl, dzdp;
@@ -266,7 +266,7 @@ void lorentz(double p, double wl, double h,
          ( complex<double> (z2p1, 0) );
        
     // Tacking on the h
-    (*temp_fit).at(i) += ( complex<double> (h, 0) ) * fo;
+    (*peak_fit).at(i) += ( complex<double> (h, 0) ) * fo;
 
     // Only compute derivatives if required
     if ( grad ) {
@@ -279,22 +279,24 @@ void lorentz(double p, double wl, double h,
 
       // Position gradient
       dfdp = dfdz*dzdp;
-      (*temp_grad).at(i).at(i_par) = dfdp;
+      (*peak_partial).at(i).at(i_par) = dfdp;
 
       // Lorentz width gradient
       dfdwl = dfdz*dzdwl;
-      (*temp_grad).at(i).at(i_par+1) = dfdwl;
+      (*peak_partial).at(i).at(i_par+1) = dfdwl;
 
       // Height gradient
-      (*temp_grad).at(i).at(i_par+2) = fo;
+      (*peak_partial).at(i).at(i_par+2) = fo;
 
       // Fraction gradient
-      (*temp_grad).at(i).at(i_par+3) = 0;
+      (*peak_partial).at(i).at(i_par+3) = 0;
     }
   }
 
   return; 
 }
+
+
 
 //==============================================================================
 // 1D fitting
@@ -310,25 +312,28 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   data_1d *d = (data_1d *) data;
 
   vector< vector<double> > y = d->y;
-  vector< vector<double> > *y_diff = &(d->y_diff);
+  vector< vector<double> > *y_mod = &(d->y_mod);
+  vector< vector<double> > *y_dif = &(d->y_dif);
   int n_par = d->n_par;
   int n_peaks = d->n_peaks;
+  int n_peaks = d->n_baseline;
+  int n_phase = d->n_phase;
   int *count = &(d->count);
 
   data_lineshape *data_direct = &(d->lineshape);
   data_lineshape *d1 = (data_lineshape *) data_direct;
 
-  vector< complex<double> > *temp_fit = &(d1->temp_fit.at(0));
-  vector< vector < complex<double> > > *temp_grad = &(d1->temp_grad);
+  vector< complex<double> > *peak_fit = &(d1->peak_fit.at(0));
+  vector< vector < complex<double> > > *peak_partial = &(d1->peak_partial);
 
   *count += 1;
 
   //--------------------
-  // Calculate lineshape temp_fit, and gradients grad
+  // Calculate lineshape peak_fit, and gradients grad
 
-  // Reseting temporary fit to zero
-  for(int i = 0; i < (*temp_fit).size(); i++ ) {
-    (*temp_fit).at(i) = complex<double> (0, 0);
+  // Reseting peak fits to zero to ensure proper accumulation
+  for(int i = 0; i < (*peak_fit).size(); i++ ) {
+    (*peak_fit).at(i) = complex<double> (0, 0);
   }
   
   // Loop over peaks
@@ -344,16 +349,31 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 		  lorentz(p, wl, h, 0, i*4, grad, data_direct);	
     }
   }
-	
+
+  //--------------------
 	// Sum of squares
 	double eval = 0;
+
+  // Temporary values
+  vector< double > y_mod(2, 0);
+  vectordouble y_dif = 0;
+  
+  // Ensuring that all the gradients start at 0 for accumulation
+  if ( grad ) {
+    for (int j = 0; j < n_par; j++) {
+      grad[j] = 0;
+    }
+  }
   
   // For 1D fit, assume that indexes of y and lineshape data match up
   for (int i = 0; i < y.size(); i++) {
-	  (*y_diff).at(i).at(0) = y.at(i).at(0) - (*temp_fit).at(i).real(); 
+
+    // 
+    y_mod
+	  (*y_diff).at(i).at(0) = y.at(i).at(0) - (*peak_fit).at(i).real(); 
 	  eval += (*y_diff).at(i).at(0) * (*y_diff).at(i).at(0);
 
-	  (*y_diff).at(i).at(1) = y.at(i).at(1) - (*temp_fit).at(i).imag(); 
+	  (*y_diff).at(i).at(1) = y.at(i).at(1) - (*peak_fit).at(i).imag(); 
 	  eval += (*y_diff).at(i).at(1) * (*y_diff).at(i).at(1);
   }
 
@@ -364,10 +384,10 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
     
       for (int i = 0; i < y.size(); i++) {
         grad[j] += -2*( (*y_diff).at(i).at(0) * 
-                        (*temp_grad).at(i).at(j).real() );
+                        (*peak_partial).at(i).at(j).real() );
 
         grad[j] += -2*( (*y_diff).at(i).at(1) * 
-                        (*temp_grad).at(i).at(j).imag() );
+                        (*peak_partial).at(i).at(j).imag() );
       }
     }
   }
@@ -397,6 +417,7 @@ double fit_lineshape_1d(
 
   // x and y data  
   vector< vector<double> > y(n_points, vector<double> (2,0) );
+  vector< vector<double> > y_mod(n_points, vector<double> (2,0) );
   vector< vector<double> > y_fit(n_points, vector<double> (2,0) );
   vector< vector<double> > y_diff(n_points, vector<double> (2,0) );
   vector< double > x(n_points, 0);
@@ -408,6 +429,11 @@ double fit_lineshape_1d(
   for (int i = 0; i < n_points; i++) {
     y.at(i).at(0) = Rcpp::as<double>(R_re(y_val.at(i)));
     y.at(i).at(1) = Rcpp::as<double>(R_im(y_val.at(i)));
+
+    // The y_mod data is used to modify the original data for phasing
+    y_mod.at(i).at(0) = Rcpp::as<double>(R_re(y_val.at(i)));
+    y_mod.at(i).at(1) = Rcpp::as<double>(R_im(y_val.at(i)));
+
     x.at(i) = x_val.at(i);
   }
 
@@ -417,14 +443,14 @@ double fit_lineshape_1d(
   data_direct.x = x;
 
   vector< vector < complex<double> > > 
-    direct_temp_fit( 1, vector< complex<double> > 
+    direct_peak_fit( 1, vector< complex<double> > 
                      ( n_points, complex<double> (0,0) ) );
-  data_direct.temp_fit = direct_temp_fit;
+  data_direct.peak_fit = direct_peak_fit;
   
   vector< vector < complex<double> > > 
-    direct_temp_grad( n_points, vector< complex<double> > 
+    direct_peak_partial( n_points, vector< complex<double> > 
                       ( n_par, complex<double> (0,0) ) );
-  data_direct.temp_grad = direct_temp_grad;
+  data_direct.peak_partial = direct_peak_partial;
 
   // And then packing general data
   data_1d data[1];

@@ -14,15 +14,16 @@
 
 typedef struct {
   std::vector< double > x;	
-  std::vector< std::vector < std::complex<double> > > temp_fit;
-  std::vector< std::vector < std::complex<double> > > temp_grad;
+  std::vector< std::vector < std::complex<double> > > peak_fit;
+  std::vector< std::vector < std::complex<double> > > peak_partial;
 } data_lineshape;
 
 typedef struct {
   data_lineshape lineshape;
   std::vector< std::vector<double> > y;	
-  std::vector< std::vector<double> > y_fit;	
-  std::vector< std::vector<double> > y_diff;	
+  std::vector< double > y_fit;	
+  std::vector< double > y_mod;	
+  std::vector< double > y_dif;	
   int n_par, n_peaks, n_baseline, n_phase, count;
 } data_1d;
 

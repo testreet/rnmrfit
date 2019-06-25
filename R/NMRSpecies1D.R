@@ -96,7 +96,7 @@ validNMRSpecies1D <- function(object) {
   }
 
   #---------------------------------------
-  # Checking connections 
+  # Checking connections leeway
   if ( (connections.leeway < 0) || (connections.leeway >= 1) ) {
     new.err <- '"connections.leeway" must be in the range [0, 1).'
     valid <- FALSE

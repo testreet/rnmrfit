@@ -355,7 +355,7 @@ nmrfit_1d <- function(
                          knots = knots, baseline = baseline, phase = phase,
                          bounds = bounds)
 
-  # If the fit is delayed, then return current object, otherwise fun fit first
+  # If the fit is delayed, then return current object, otherwise run fit first
   if ( delay.fit ) out
   else fit(out, sf = sf, init = init, opts = opts, 
            exclusion.level = exclusion.level, 
@@ -483,10 +483,14 @@ setMethod("fit", "NMRFit1D",
                      lb = rep(bounds(object)$lower$baseline, n.baseline),
                      ub = rep(bounds(object)$upper$baseline, n.baseline))
 
+    print(baseline)
+
     # Technically speaking, the "bound" on phase is a constraint, not a bound
     phase <- list(par = phase(object), 
                   lb = rep(-Inf, n.phase),
                   ub = rep(Inf, n.phase))
+
+    print(phase)
 
     par <- list(par = NA, lb = NA, ub = NA)
     for (name in names(par)) {
