@@ -312,11 +312,11 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   data_1d *d = (data_1d *) data;
 
   vector< vector<double> > y = d->y;
-  vector< vector<double> > *y_mod = &(d->y_mod);
-  vector< vector<double> > *y_dif = &(d->y_dif);
+  vector< double > *y_mod = &(d->y_mod);
+  vector< double > *y_dif = &(d->y_dif);
   int n_par = d->n_par;
   int n_peaks = d->n_peaks;
-  int n_peaks = d->n_baseline;
+  int n_baseline = d->n_baseline;
   int n_phase = d->n_phase;
   int *count = &(d->count);
 
@@ -329,7 +329,7 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   *count += 1;
 
   //--------------------
-  // Calculate lineshape peak_fit, and gradients grad
+  // Calculate lineshape peak_fit, and gradient partial derivatives
 
   // Reseting peak fits to zero to ensure proper accumulation
   for(int i = 0; i < (*peak_fit).size(); i++ ) {
@@ -354,10 +354,6 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 	// Sum of squares
 	double eval = 0;
 
-  // Temporary values
-  vector< double > y_mod(2, 0);
-  vectordouble y_dif = 0;
-  
   // Ensuring that all the gradients start at 0 for accumulation
   if ( grad ) {
     for (int j = 0; j < n_par; j++) {
@@ -368,27 +364,42 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   // For 1D fit, assume that indexes of y and lineshape data match up
   for (int i = 0; i < y.size(); i++) {
 
-    // 
-    y_mod
-	  (*y_diff).at(i).at(0) = y.at(i).at(0) - (*peak_fit).at(i).real(); 
-	  eval += (*y_diff).at(i).at(0) * (*y_diff).at(i).at(0);
+    // Applying phase correction if necessary
+    if ( n_phase > 0 ) { 
+    } else { 
+      (*y_mod).at(0) = y.at(i).at(0);
+      (*y_mod).at(1) = y.at(i).at(1);
+    }
 
-	  (*y_diff).at(i).at(1) = y.at(i).at(1) - (*peak_fit).at(i).imag(); 
-	  eval += (*y_diff).at(i).at(1) * (*y_diff).at(i).at(1);
+    // Applying peak fit
+    (*y_dif).at(0) = (*y_mod).at(0) - (*peak_fit).at(i).real();
+    (*y_dif).at(1) = (*y_mod).at(1) - (*peak_fit).at(i).imag();
+
+    // Applying baseline correction
+    // ...
+
+    // Incrementing sum of squares
+	  eval += (*y_dif).at(0) * (*y_dif).at(0);
+	  eval += (*y_dif).at(1) * (*y_dif).at(1);
+
+    // Filling in gradients if necessary
+    // Note that the 2 scaling term is applied outside the loop
+    if ( grad ) {
+
+      // First the peaks
+      for (int j = 0; j < (n_peaks*4); j++) {
+        grad[j] -= (*y_dif).at(0) * (*peak_partial).at(i).at(j).real();
+        grad[j] -= (*y_dif).at(1) * (*peak_partial).at(i).at(j).imag();
+      }
+
+      // Then the baseline...
+    }
   }
 
-  // Gradients
+  // Multiplying gradients by 2
   if ( grad ) {
     for (int j = 0; j < n_par; j++) {
-      grad[j] = 0;
-    
-      for (int i = 0; i < y.size(); i++) {
-        grad[j] += -2*( (*y_diff).at(i).at(0) * 
-                        (*peak_partial).at(i).at(j).real() );
-
-        grad[j] += -2*( (*y_diff).at(i).at(1) * 
-                        (*peak_partial).at(i).at(j).imag() );
-      }
+      grad[j] *= 2;
     }
   }
 
@@ -417,10 +428,10 @@ double fit_lineshape_1d(
 
   // x and y data  
   vector< vector<double> > y(n_points, vector<double> (2,0) );
-  vector< vector<double> > y_mod(n_points, vector<double> (2,0) );
-  vector< vector<double> > y_fit(n_points, vector<double> (2,0) );
-  vector< vector<double> > y_diff(n_points, vector<double> (2,0) );
   vector< double > x(n_points, 0);
+
+  vector< double > y_mod(2,0);
+  vector< double > y_dif(2,0);
 
   Rcpp::Function R_re("Re");
   Rcpp::Function R_im("Im");
@@ -430,10 +441,6 @@ double fit_lineshape_1d(
     y.at(i).at(0) = Rcpp::as<double>(R_re(y_val.at(i)));
     y.at(i).at(1) = Rcpp::as<double>(R_im(y_val.at(i)));
 
-    // The y_mod data is used to modify the original data for phasing
-    y_mod.at(i).at(0) = Rcpp::as<double>(R_re(y_val.at(i)));
-    y_mod.at(i).at(1) = Rcpp::as<double>(R_im(y_val.at(i)));
-
     x.at(i) = x_val.at(i);
   }
 
@@ -442,23 +449,23 @@ double fit_lineshape_1d(
   
   data_direct.x = x;
 
-  vector< vector < complex<double> > > 
-    direct_peak_fit( 1, vector< complex<double> > 
-                     ( n_points, complex<double> (0,0) ) );
-  data_direct.peak_fit = direct_peak_fit;
+  data_direct.peak_fit = 
+    vector< vector < complex<double> > >
+      ( 1, vector< complex<double> > 
+        ( n_points, complex<double> (0,0) ) );
   
-  vector< vector < complex<double> > > 
-    direct_peak_partial( n_points, vector< complex<double> > 
-                      ( n_par, complex<double> (0,0) ) );
-  data_direct.peak_partial = direct_peak_partial;
+  data_direct.peak_partial = 
+    vector< vector < complex<double> > > 
+      ( n_points, vector< complex<double> > 
+        ( n_par, complex<double> (0,0) ) );
 
   // And then packing general data
   data_1d data[1];
 
   data[0].lineshape = data_direct;
   data[0].y = y;
-  data[0].y_fit = y_fit;
-  data[0].y_diff = y_diff;
+  data[0].y_mod = y_mod;
+  data[0].y_dif = y_dif;
   data[0].n_par = n_par;
   data[0].n_peaks = n_peaks;
   data[0].n_baseline = n_baseline;
@@ -471,7 +478,7 @@ double fit_lineshape_1d(
   nlopt_opt opt;
 
   opt = nlopt_create(NLOPT_LD_SLSQP, n_par);    
-  //opt = nlopt_create(NLOPT_LN_COBYLA, n_par); 
+  // opt = nlopt_create(NLOPT_LN_COBYLA, n_par); 
   nlopt_set_min_objective(opt, f_obj_1d, &data[0]);
   nlopt_set_xtol_rel(opt, 1e-4);
 
