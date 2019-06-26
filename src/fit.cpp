@@ -311,9 +311,11 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   // Unpacking lineshape_data structure
   data_1d *d = (data_1d *) data;
 
+  vector< double > x = d->x;
   vector< vector<double> > y = d->y;
   vector< double > *y_mod = &(d->y_mod);
   vector< double > *y_dif = &(d->y_dif);
+
   int n_par = d->n_par;
   int n_peaks = d->n_peaks;
   int n_baseline = d->n_baseline;
@@ -354,6 +356,9 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 	// Sum of squares
 	double eval = 0;
 
+  // For phase correction
+  double theta = 0;
+
   // Ensuring that all the gradients start at 0 for accumulation
   if ( grad ) {
     for (int j = 0; j < n_par; j++) {
@@ -366,6 +371,16 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 
     // Applying phase correction if necessary
     if ( n_phase > 0 ) { 
+
+      if ( n_phase == 1 ) {
+        theta = par[n_par-1];
+      } else {
+        theta = par[n_par-2] + x.at(i)*par[n_par-1];
+      }
+
+      (*y_mod).at(0) = y.at(i).at(0)*cos(theta) + y.at(i).at(1)*sin(theta); 
+      (*y_mod).at(1) = -y.at(i).at(0)*sin(theta) + y.at(i).at(1)*cos(theta); 
+
     } else { 
       (*y_mod).at(0) = y.at(i).at(0);
       (*y_mod).at(1) = y.at(i).at(1);
@@ -393,6 +408,22 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
       }
 
       // Then the baseline...
+
+      // Finally, the phase
+      if ( n_phase > 0 ) {
+
+        double dtheta = (*y_dif).at(0) * 
+                        (-y.at(i).at(0)*sin(theta) + y.at(i).at(1)*cos(theta)) +
+                        (*y_dif).at(1) * 
+                        (-y.at(i).at(0)*cos(theta) - y.at(i).at(1)*sin(theta));
+
+        if ( n_phase == 1 ) {
+          grad[n_par-1] += dtheta; 
+        } else {
+          grad[n_par-2] += dtheta;
+          grad[n_par-1] += dtheta * x.at(i);
+        }
+      }
     }
   }
 
@@ -463,6 +494,7 @@ double fit_lineshape_1d(
   data_1d data[1];
 
   data[0].lineshape = data_direct;
+  data[0].x = x;
   data[0].y = y;
   data[0].y_mod = y_mod;
   data[0].y_dif = y_dif;

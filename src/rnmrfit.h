@@ -20,8 +20,8 @@ typedef struct {
 
 typedef struct {
   data_lineshape lineshape;
+  std::vector< double > x;	
   std::vector< std::vector<double> > y;	
-  std::vector< double > y_fit;	
   std::vector< double > y_mod;	
   std::vector< double > y_dif;	
   int n_par, n_peaks, n_baseline, n_phase, count;

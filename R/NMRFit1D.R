@@ -666,6 +666,8 @@ setMethod("fit", "NMRFit1D",
     fit_lineshape_1d(x, y, par$par, par$lb, par$ub, 
                      eq.constraints, ineq.constraints,
                      n.peaks, n.baseline, n.phase)
+
+    print(par$par)
     object@time <- as.numeric(proc.time() - start.time)[3]
 
     #---------------------------------------
