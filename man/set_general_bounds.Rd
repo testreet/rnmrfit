@@ -5,6 +5,7 @@
 \name{set_general_bounds}
 \alias{set_general_bounds}
 \alias{set_general_bounds,NMRResonance1D-method}
+\alias{set_peak_type,NMRResonance1D-method}
 \alias{set_general_bounds,NMRSpecies1D-method}
 \alias{set_general_bounds,NMRFit1D-method}
 \title{Set general bounds of an NMRResonance1D object}
@@ -14,6 +15,8 @@ set_general_bounds(object, ...)
 \S4method{set_general_bounds}{NMRResonance1D}(object, position = NULL,
   height = NULL, width = NULL, fraction.gauss = NULL,
   nmrdata = NULL, widen = FALSE)
+
+\S4method{set_peak_type}{NMRResonance1D}(object, peak.type)
 
 \S4method{set_general_bounds}{NMRSpecies1D}(object, ...)
 

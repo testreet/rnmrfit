@@ -23,7 +23,9 @@ typedef struct {
   std::vector< double > x;	
   std::vector< std::vector<double> > y;	
   std::vector< double > y_mod;	
+  std::vector< double > y_fit;	
   std::vector< double > y_dif;	
+  std::vector< std::vector<double> > basis;	
   int n_par, n_peaks, n_baseline, n_phase, count;
 } data_1d;
 

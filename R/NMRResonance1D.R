@@ -1423,6 +1423,79 @@ setMethod("set_conservative_bounds", "NMRResonance1D",
 
 
 
+#------------------------------------------------------------------------------
+#' Set peak type of an NMRResonance1D object
+#' 
+#' The peak type of an NMRResonance1D object is governed by the fraction.gauss
+#' parameter and can fluidly go from pure Lorentz to Gauss via the combined
+#' Voigt lineshape. However, it can be computationally efficient to force a
+#' specific peak type. This function provided a shortcut for doing so by
+#' changing the fraction.gauss parameter as well as lower and upper bounds.
+#' 
+#' @param object An NMRResonance1D, NMRSpecies1D, or NMRFit1D object.
+#' @param peak.type One of either "lorentz", "voigt", "gauss", or "any" where
+#'                  "any" clears existing bounds on the fraction.gauss
+#'                  parameter.
+#' @inheritParams methodEllipse
+#' 
+#' @return A new object with modified bounds and peak parameters.
+#' 
+#' @name set_peak_type
+#' @export
+setGeneric("set_peak_type", 
+  function(object, ...) {
+    standardGeneric("set_peak_type")
+  })
+
+#' @rdname set_general_bounds
+#' @export
+setMethod("set_peak_type", "NMRResonance1D",
+  function(object, peak.type) {
+
+    # Initializing bounds
+    object <- .initialize_bounds(object)
+    peaks <- object@peaks
+    lower <- object@bounds$lower
+    upper <- object@bounds$upper
+
+    # Getting rid of empty spaces and capitals
+    peak.type <- tolower(gsub('\\s', '', peak.type))
+    peak.types <- c('lorentz', 'voigt', 'gauss', 'any')
+    peak.type <- pmatch(peak.type, peak.types)
+
+    if ( peak.type == 1 ) {
+      lower$fraction.gauss <- 0
+      upper$fraction.gauss <- 0
+      peaks$fraction.gauss <- 0
+    } else if ( peak.type == 2 ) {
+      lower$fraction.gauss <- 1e-6
+      upper$fraction.gauss <- 1 - 1e-6
+
+      logic <- peaks$fraction.gauss < lower$fraction.gauss
+      peaks[logic , 'fraction.gauss'] <- lower$fraction.gauss[logic] + 1e-6
+      logic <- peaks$fraction.gauss > upper$fraction.gauss
+      peaks[logic , 'fraction.gauss'] <- upper$fraction.gauss[logic] - 1e-6
+    } else if ( peak.type == 3 ) {
+      lower$fraction.gauss <- 1
+      upper$fraction.gauss <- 1
+      peaks$fraction.gauss <- 1
+    } else if ( peak.type == 4 ) {
+      lower$fraction.gauss <- 0
+      upper$fraction.gauss <- 1
+    } else {
+      peak.types <- paste(peak.types, collapse = ', ')
+      err <- sprintf('Peak type must be one of %s', peak.types)
+      stop(err)
+    }
+
+    object@bounds <- list(lower = lower, upper = upper)
+    object@peaks <- peaks
+
+    object
+  })
+
+
+
 #========================================================================>
 #  Lineshape and area calculations
 #========================================================================>

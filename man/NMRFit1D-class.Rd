@@ -22,20 +22,23 @@ and post-fit objects to be saved as different variables.
 
 \item{\code{nmrdata}}{An NMRData1D object used to fit the peaks.}
 
-\item{\code{knots}}{A vector of chemical shifts corresponds to the internal knots of
-the baseline term (two boundary knots are always included).}
+\item{\code{knots}}{A vector of chemical shifts corresponding to the internal knots
+of the baseline term (two boundary knots are always included).}
 
 \item{\code{baseline}}{A vectors of complex numeric values representing the baseline.
 The actual baseline is generated from a basis spline so these
-values roughly represent the intensity values of the baseline
-based on the chemical shift locations of the knots. Baseline
-degree and default number of internal knots can be set using
-nmrsession_1d(baseline = list(degree = 3, n.knots = 0)), with
-the baseline vector length equal to the degree + n.knots.}
+values are control points that are roughly proportional to the
+intensity values of the baseline based on the chemical shift
+locations of the knots. The default baseline order and the
+number of internal knots can be set using
+nmrsession_1d(baseline = list(order = 3, n.knots = 0)), with
+the baseline vector length equal to the order + n.knots + 1.}
 
-\item{\code{phase}}{A number vectors of phase correction terms, starting from 0 order
-and up. The default number of phase terms can be set using
-nmrsession_1d(n.phase = 1).}
+\item{\code{phase}}{A vector of phase correction terms, corresponding to either 0 or
+1st order phase correction. The default phase correction order
+can be set using nmrsession_1d(phase = list(order=1)). Note that
+the 0 order term is always calculated with respect to 0 ppm and
+the first order term has units of degrees per ppm.}
 
 \item{\code{bounds}}{A lower and upper bounds on baseline and phase terms. Both lower
 and upper bounds are lists containing "baseline", and "phase"

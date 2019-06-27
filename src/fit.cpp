@@ -314,13 +314,21 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   vector< double > x = d->x;
   vector< vector<double> > y = d->y;
   vector< double > *y_mod = &(d->y_mod);
+  vector< double > *y_fit = &(d->y_fit);
   vector< double > *y_dif = &(d->y_dif);
+
+  vector< vector<double> > *basis = &(d->basis);
+  vector< double > *basis_row;
 
   int n_par = d->n_par;
   int n_peaks = d->n_peaks;
   int n_baseline = d->n_baseline;
   int n_phase = d->n_phase;
   int *count = &(d->count);
+
+  // Whereas n_peaks refers to the number of peak, the number of peak parameters
+  // are also frequentely needed
+  int n_peaks_par = n_peaks*4;
 
   data_lineshape *data_direct = &(d->lineshape);
   data_lineshape *d1 = (data_lineshape *) data_direct;
@@ -387,11 +395,19 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
     }
 
     // Applying peak fit
-    (*y_dif).at(0) = (*y_mod).at(0) - (*peak_fit).at(i).real();
-    (*y_dif).at(1) = (*y_mod).at(1) - (*peak_fit).at(i).imag();
+    (*y_fit).at(0) = (*peak_fit).at(i).real();
+    (*y_fit).at(1) = (*peak_fit).at(i).imag();
 
-    // Applying baseline correction
-    // ...
+    // Applying baseline fit
+    basis_row = &(basis->at(i));
+    for (int j = 0; j < n_baseline; j++) {
+      (*y_fit).at(0) += par[n_peaks_par+j]*(*basis_row).at(j);
+      (*y_fit).at(1) += par[n_peaks_par+j+n_baseline]*(*basis_row).at(j);
+    }
+
+    // Calculating difference
+    (*y_dif).at(0) = (*y_mod).at(0) - (*y_fit).at(0);
+    (*y_dif).at(1) = (*y_mod).at(1) - (*y_fit).at(1);;
 
     // Incrementing sum of squares
 	  eval += (*y_dif).at(0) * (*y_dif).at(0);
@@ -402,12 +418,16 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
     if ( grad ) {
 
       // First the peaks
-      for (int j = 0; j < (n_peaks*4); j++) {
+      for (int j = 0; j < n_peaks_par; j++) {
         grad[j] -= (*y_dif).at(0) * (*peak_partial).at(i).at(j).real();
         grad[j] -= (*y_dif).at(1) * (*peak_partial).at(i).at(j).imag();
       }
 
-      // Then the baseline...
+      // Then the baseline
+      for (int j = 0; j < n_baseline; j++) {
+        grad[n_peaks_par+j] -= (*y_dif).at(0) * (*basis_row).at(j);
+        grad[n_peaks_par+j+n_baseline] -= (*y_dif).at(1) * (*basis_row).at(j);
+      }
 
       // Finally, the phase
       if ( n_phase > 0 ) {
@@ -447,7 +467,8 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
 double fit_lineshape_1d(
   const Rcpp::NumericVector x_val, const Rcpp::ComplexVector y_val,
   Rcpp::NumericVector par, Rcpp::NumericVector lb, Rcpp::NumericVector ub,
-  Rcpp::List eq, Rcpp::List ineq, int n_peaks, int n_baseline, int n_phase) {
+  Rcpp::NumericMatrix basis_val, Rcpp::List eq, Rcpp::List ineq, 
+  int n_peaks, int n_baseline, int n_phase) {
 
   using namespace std;
 
@@ -462,17 +483,27 @@ double fit_lineshape_1d(
   vector< double > x(n_points, 0);
 
   vector< double > y_mod(2,0);
+  vector< double > y_fit(2,0);
   vector< double > y_dif(2,0);
+
+  std::vector< std::vector<double> > basis(n_points, 
+      vector<double> (n_baseline,0) );	
 
   Rcpp::Function R_re("Re");
   Rcpp::Function R_im("Im");
 
+  // Converting Rcpp objects to std::vector to keep things standardized
   // For 1D fit, x and y can be treated as paired
   for (int i = 0; i < n_points; i++) {
     y.at(i).at(0) = Rcpp::as<double>(R_re(y_val.at(i)));
     y.at(i).at(1) = Rcpp::as<double>(R_im(y_val.at(i)));
 
     x.at(i) = x_val.at(i);
+
+    for (int j = 0; j < n_baseline; j++) {
+      basis.at(i).at(j) = basis_val(i, j);  
+    }
+
   }
 
   // First, packing lineshape data
@@ -497,7 +528,9 @@ double fit_lineshape_1d(
   data[0].x = x;
   data[0].y = y;
   data[0].y_mod = y_mod;
+  data[0].y_fit = y_fit;
   data[0].y_dif = y_dif;
+  data[0].basis = basis;
   data[0].n_par = n_par;
   data[0].n_peaks = n_peaks;
   data[0].n_baseline = n_baseline;
@@ -596,7 +629,7 @@ double fit_lineshape_1d(
   double minf; 						
 
   //--------------------
-  // Running it
+  // Running the fit
 
   data_1d *d = (data_1d *) data;
   int *count = &(d->count);

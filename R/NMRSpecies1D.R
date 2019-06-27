@@ -520,6 +520,15 @@ setMethod("set_conservative_bounds", "NMRSpecies1D",
     object
   })
 
+#------------------------------------------------------------------------------
+#' @rdname set_peak_type
+#' @export
+setMethod("set_peak_type", "NMRSpecies1D",
+  function(object, ...) {
+    object@resonances <- lapply(object@resonances, set_peak_type, ...)
+    object
+  })
+
 
 
 #========================================================================>
