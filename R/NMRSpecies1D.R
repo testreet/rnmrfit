@@ -55,6 +55,7 @@ validNMRSpecies1D <- function(object) {
 
   resonances <- object@resonances
   connections <- object@connections 
+  connections.leeway <- object@connections.leeway
 
   valid <- TRUE
   err <- c()
@@ -92,6 +93,14 @@ validNMRSpecies1D <- function(object) {
       err <- c(err, new.err)
     }
 
+  }
+
+  #---------------------------------------
+  # Checking connections leeway
+  if ( (connections.leeway < 0) || (connections.leeway >= 1) ) {
+    new.err <- '"connections.leeway" must be in the range [0, 1).'
+    valid <- FALSE
+    err <- c(err, new.err)
   }
 
   #---------------------------------------
@@ -144,9 +153,14 @@ setValidity("NMRSpecies1D", validNMRSpecies1D)
 nmrspecies_1d <- function(resonances, areas = NULL, id = NULL, 
                           connections.leeway = 0, ...) {
 
+
   #---------------------------------------
   # Generating list of resonances
   resonances.list <- list()
+
+  # If the original resonances aren't a list, place them into a list
+  if ( class(resonances) == 'character' ) resonances <- as.list(resonances)
+  else if ( class(resonances) != 'list' ) resonances <- list(resonances)
 
   for (i in 1:length(resonances)) {
 
@@ -503,6 +517,15 @@ setMethod("set_offset_bounds", "NMRSpecies1D",
 setMethod("set_conservative_bounds", "NMRSpecies1D",
   function(object, ...) { 
     object@resonances <- lapply(object@resonances, set_conservative_bounds, ...)
+    object
+  })
+
+#------------------------------------------------------------------------------
+#' @rdname set_peak_type
+#' @export
+setMethod("set_peak_type", "NMRSpecies1D",
+  function(object, ...) {
+    object@resonances <- lapply(object@resonances, set_peak_type, ...)
     object
   })
 

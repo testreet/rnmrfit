@@ -6,7 +6,8 @@ Description: Implements NMR lineshape fitting using the real and imaginary compo
 Depends:
     R (>= 3.2.2),
     GlobalOptions (>= 0.1),
-    nloptr (>= 1.0.4),
+    magrittr (>= 1.5),
+    nloptr (>= 1.2.0),
     plotly (>= 4.6.0),
     proto (>= 1.0.0),
     RcppFaddeeva (>= 0.1.0),
@@ -14,7 +15,7 @@ Depends:
     tidyverse,
     vctrs
 Imports: Rcpp, pillar
-LinkingTo: Rcpp
+LinkingTo: Rcpp, nloptr
 License: Apache (>= 2.0)
 LazyData: true
 RoxygenNote: 6.1.1
