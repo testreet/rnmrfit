@@ -1,13 +1,11 @@
 # Definition of global options
 
-#' Set global options
+#------------------------------------------------------------------------------
+#' Set global options for 1D peak processing and fitting
 #' 
 #' A number of common parameters are used across different functions. Such
 #' global options are assumed to be valid for all (or at least most) analysis
 #' carried out during a single session.
-#' 
-#' @param sf Sweep frequncy (MHz). Used to convert peak width and coupling
-#'           information from Hz into ppm.
 #' 
 #' @export
 nmrsession_1d <- set_opt(
@@ -62,6 +60,28 @@ nmrsession_1d <- set_opt(
       (class(x[['init']]) == 'function')
   })
 )
+
+#------------------------------------------------------------------------------
+#' Set global options for 2D peak processing and fitting
+#' 
+#' A number of common parameters are used across different functions. Such
+#' global options are assumed to be valid for all (or at least most) analysis
+#' carried out during a single session.
+#' 
+#' @export
+nmrsession_2d <- set_opt(
+  "sf" = list(
+    .value = list(
+      direct = NULL,
+      indirect = NULL
+    ),
+    .length = 2,
+    .class = "list",
+    .validate = function (x) {
+      all(names(x) %in% c('direct', 'indirect'))
+  })
+)
+
 
 # Some potential plot options to consider in the future:
 # "plot" = list(.value = 
