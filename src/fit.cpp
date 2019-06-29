@@ -296,7 +296,134 @@ void lorentz(double p, double wl, double h,
   return; 
 }
 
+void gauss(double p, double wg, double h, 
+             int i_res, int i_par, double *grad, void *data) {
 
+	using namespace std;
+
+  // Unpacking data structure
+  data_lineshape *d = (data_lineshape *) data;
+  
+  vector< double > x = d->x;
+  
+  vector< complex<double> > *peak_fit = &(d->peak_fit.at(i_res));
+  vector< vector < complex<double> > > *peak_partial = &(d->peak_partial);
+
+  // Main terms
+  complex<double> dfdz, dfdp, dfdwg, dzdwg, dzdp;
+
+  // Commonly used intermediate values
+  double pi = 4.0*atan(1.0);
+  double z;
+
+  // Looping through each x value
+  for(int i = 0; i < x.size(); i++ ) {
+
+    // Main terms
+    z = (x.at(i)-p)/(sqrt(2.0)*wg);
+    (*peak_fit).at(i) += h * Faddeeva::w( (complex<double> (z, 0)) );
+
+    // Only compute derivatives if required
+    if ( grad ) {
+      dfdz = (*peak_fit).at(i) * ( complex<double> (-2*z, 0) ) + 
+             ( complex<double> (0, 2/sqrt(pi)) );
+
+      // Derivatives of z for chain rule
+      dzdp = complex<double> (-1/(sqrt(2.0)*wg), 0);
+      dzdwg = complex<double> (-z/wg, 0);
+
+      // Position gradient
+      dfdp = dfdz * dzdp;
+      (*peak_partial).at(i).at(i_par) = dfdp;
+
+      // Gauss width gradient
+      dfdwg = dfdz * dzdwg;
+      (*peak_partial).at(i).at(i_par+1) = dfdwg;
+
+      // Height gradient
+      (*peak_partial).at(i).at(i_par+2) = (*peak_fit).at(i);
+
+      // Fraction gradient
+      (*peak_partial).at(i).at(i_par+3) = 0;
+    }
+  }
+
+  return; 
+}
+
+void voigt(double p, double wl, double h, double f, 
+             int i_res, int i_par, double *grad, void *data) {
+
+	using namespace std;
+
+  // Unpacking data structure
+  data_lineshape *d = (data_lineshape *) data;
+  
+  vector< double > x = d->x;
+  
+  vector< complex<double> > *peak_fit = &(d->peak_fit.at(i_res));
+  vector< vector < complex<double> > > *peak_partial = &(d->peak_partial);
+
+  // Main terms
+  complex<double> dfdz, dfdp, dfdwl, dfdwg, dzdp, dzdwl, dzdwg;
+  complex<double> z0, f0, f02, df0dz0, dz0dwg, fnrm;
+  // Commonly used intermediate values
+  double pi = 4.0*atan(1.0);
+  complex<double> z, a, b;
+
+  // Pre-calculations
+  double wg = wl * f / (1 - f);
+  a = complex<double> (0, sqrt(2.0)*wg);
+  b = ( complex<double> (h, 0) ) /
+      Faddeeva::w( ( complex<double> (0, wl) ) / a);
+      
+  // Looping through each x value
+  for(int i = 0; i < x.size(); i++ ) {
+
+    // Pre-calculating common values
+    z = ( complex<double> ((x.at(i) - p),wl)) / a;
+    (*peak_fit).at(i) += b * Faddeeva::w(z);
+    
+    // Only compute derivatives if required
+    if ( grad ) {
+      
+      //Normalising factors
+      z0 = ( complex<double> (0, wl) ) / a;
+      f0 = Faddeeva::w(z0);
+      f02 = f0*f0;
+      fnrm = (*peak_fit).at(i) / f0;
+    
+	  dfdz = ( complex<double> (-2.0, 0) ) * z * 
+             (*peak_fit).at(i) + ( complex<double> (0, 2/sqrt(pi)) );
+      df0dz0 = ( complex<double> (-2.0, 0) ) * z0 *
+               f0 + ( complex<double> (0, 2/sqrt(pi)) );
+               
+      // Derivatives of z for chain rule
+      dzdp = complex<double> (-1/(sqrt(2.0)*wg), 0);
+      dzdwl = complex<double> (0, 1/(sqrt(2.0)*wg));
+      dzdwg = -z / ( complex<double> (0, wg) );
+      dz0dwg = -( complex<double> (0, wl) ) / 
+               ( complex<double> (sqrt(2.0)*wg*wg, 0) );
+
+      // Position gradient
+      dfdp = h * dfdz * dzdp;
+      (*peak_partial).at(i).at(i_par) = dfdp;
+
+      // Lorentz width gradient
+      dfdwl = h * (dfdz * f0 - df0dz0 * (*peak_fit).at(i)) / f02 * dzdwl;
+      (*peak_partial).at(i).at(i_par+1) = dfdwl;
+      
+	  // Height gradient
+      (*peak_partial).at(i).at(i_par+2) = fnrm;
+
+      // Fraction gradient
+      (*peak_partial).at(i).at(i_par+3) = -z * wg / (wl * f*f);
+      
+    }
+  }
+
+  return; 
+}
 
 //==============================================================================
 // 1D fitting
@@ -350,14 +477,22 @@ double f_obj_1d(unsigned n, const double *par, double *grad, void *data) {
   for (int i = 0; i < n_peaks; i++) {
 
     double p = par[i*4];
-    double wl = par[i*4+1];
+    double w = par[i*4+1];
     double h = par[i*4+2];
     double f = par[i*4+3];
     
     // If the fraction gauss value is 0, proceed as Lorentz (w becomes wl)
-    if ( true ) {
-		  lorentz(p, wl, h, 0, i*4, grad, data_direct);	
+    if ( f == 0 ) {
+		  lorentz(p, w, h, 0, i*4, grad, data_direct);	
     }
+    // If the fraction gauss value is 1, proceed as gauss (w becomes wg)
+    else if ( f == 1 ){
+    	  gauss(p, w, h, 0, i*4, grad, data_direct);
+	}
+	// Else, treat the lineshape as voigt (w becomes wl)
+	else{
+		  voigt(p, w, h, f, 0, i*4, grad, data_direct);	  
+	}
   }
 
   //--------------------
@@ -647,8 +782,3 @@ double fit_lineshape_1d(
 
 	return minf;
 }
-
-
-
-
-       
